@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard — Habit Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'habits/css/style.css' %}">
+<script src="{% static 'habits/js/script.js' %}"></script>  </head>
+<body>
+  <div class="app-shell">
+
+    <!-- ============ SIDEBAR ============ -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <button class="icon-btn plain" id="sidebarToggle" aria-label="Toggle sidebar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.6"/><line x1="10" y1="4" x2="10" y2="20" stroke="currentColor" stroke-width="1.6"/></svg>
+        </button>
+        <span class="brand-name sidebar-label">Habit Tracker</span>
+      </div>
+
+      <button class="history-toggle" id="historyToggle">
+        <span>History</span>
+        <span class="chev"><svg width="13" height="8" viewBox="0 0 13 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L6.5 6.5L12 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </button>
+      <div class="history-list" id="historyList"></div>
+
+      <div class="sidebar-spacer"></div>
+
+      <div class="theme-switch-row">
+        <span class="icon js-theme-icon" id="sidebarThemeIcon">🌙</span>
+        <span class="js-theme-label">Night mode</span>
+        <label class="switch">
+          <input type="checkbox" id="sidebarThemeSwitch" />
+          <span class="track"></span>
+        </label>
+      </div>
+      <button class="sidebar-item-row" id="settingsBtn">
+        <span class="icon">⚙</span>
+        <span class="sidebar-label">Settings</span>
+      </button>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="user-block">
+        <div class="user-name-block">
+          <div class="avatar"><span class="js-user-initial"></span></div>
+          <span class="js-user-name"></span>
+        </div>
+        <button class="view-account-btn" id="viewAccountBtn"><span>View Account</span></button>
+      </div>
+    </aside>
+
+    <!-- ============ MAIN COLUMN ============ -->
+    <main class="main-col">
+      <div class="topbar">
+        <h1>Hi, <span class="js-user-name"></span></h1>
+        <svg class="pulse-icon" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 0.00053125 0.0016125 L 45.891156 -36.713231 C 45.891156 -36.713231 54.01225 -38.947606 56.820844 -35.767919 C 105.926312 19.798487 497.363812 470.485987 477.680219 696.9938 C 475.0435 727.3688 469.191937 794.724269 418.457562 836.974269 C 366.176312 880.521144 283.445844 883.068019 224.641156 853.126612 C 208.945844 845.138331 176.098187 825.235987 146.57475 775.060206 C 74.69975 652.927394 27.789594 403.173487 9.129437 288.220362 C 7.645062 279.08755 -5.597125 279.4313 -6.624469 288.626612 C -19.792438 406.888331 -50.769 672.485987 -82.757281 856.4938 C -84.202594 864.798487 -95.870563 865.439112 -98.229938 857.349269 L -200.210406 507.454737 C -201.198688 504.060206 -204.311969 501.728175 -207.847125 501.728175 L -478.593219 501.728175 " transform="matrix(1, 0, 0, -1, 542.769, 954.0563)" stroke="var(--accent)" stroke-width="60" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="content-area">
+        <div class="main-scroll">
+          <section class="overview-card">
+            <div class="overview-head">
+              <div class="period-dropdown">
+                <button class="period-trigger" id="periodTrigger">
+                  <span id="periodLabel">This Week</span>
+                  <span class="chev"><svg width="13" height="8" viewBox="0 0 13 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L6.5 6.5L12 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </button>
+                <div class="period-menu" id="periodMenu">
+                  <button type="button" data-period="week">This Week</button>
+                  <button type="button" data-period="month">This Month</button>
+                  <button type="button" data-period="year">This Year</button>
+                </div>
+              </div>
+              <div class="legend">
+                <span class="legend-item"><span class="legend-dot status-very-well"></span>Very Well</span>
+                <span class="legend-item"><span class="legend-dot status-good"></span>Good</span>
+                <span class="legend-item"><span class="legend-dot status-bad"></span>Bad</span>
+              </div>
+            </div>
+
+            <div class="day-grid view-week" id="dayGrid"></div>
+            <div class="day-labels-row" id="dayLabelsRow"></div>
+          </section>
+
+          <section class="habits-row" id="habitsRow"></section>
+        </div>
+
+        <button class="ask-bar" id="askAnythingBar" type="button">
+          <span class="plus-icon">+</span>
+          <span class="ask-text">Ask anything..</span>
+        </button>
+
+        <!-- Chat panel: slides up over THIS content area only. The
+             sidebar and the "Hi, {name}" bar above stay put and are
+             never covered or duplicated. -->
+        <div class="chat-panel" id="chatbotOverlay">
+          <div class="chat-body">
+            <div class="chat-empty-state" id="chatEmptyState">
+              <svg class="pulse-icon large" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M 0.00053125 0.0016125 L 45.891156 -36.713231 C 45.891156 -36.713231 54.01225 -38.947606 56.820844 -35.767919 C 105.926312 19.798487 497.363812 470.485987 477.680219 696.9938 C 475.0435 727.3688 469.191937 794.724269 418.457562 836.974269 C 366.176312 880.521144 283.445844 883.068019 224.641156 853.126612 C 208.945844 845.138331 176.098187 825.235987 146.57475 775.060206 C 74.69975 652.927394 27.789594 403.173487 9.129437 288.220362 C 7.645062 279.08755 -5.597125 279.4313 -6.624469 288.626612 C -19.792438 406.888331 -50.769 672.485987 -82.757281 856.4938 C -84.202594 864.798487 -95.870563 865.439112 -98.229938 857.349269 L -200.210406 507.454737 C -201.198688 504.060206 -204.311969 501.728175 -207.847125 501.728175 L -478.593219 501.728175 " transform="matrix(1, 0, 0, -1, 542.769, 954.0563)" stroke="var(--accent)" stroke-width="60" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <h1>What's up <span class="js-user-name"></span></h1>
+            </div>
+            <div class="chat-thread" id="chatThread"></div>
+          </div>
+
+          <div class="chat-inputbar">
+            <button class="icon-btn" id="closeChatBtn" aria-label="Close chat" style="color: var(--accent); border-color: var(--accent);">✕</button>
+            <input type="text" id="chatInput" placeholder="Ask anything.." />
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ ACCOUNT MODAL ============ -->
+  <div class="modal-overlay" id="accountModal">
+    <div class="modal-card">
+      <button class="icon-btn modal-close" id="accountCloseBtn" aria-label="Close">✕</button>
+      <div class="modal-avatar">👤</div>
+      <form id="accountForm">
+        <div class="modal-field">
+          <input type="text" id="accountName" placeholder="Name" />
+        </div>
+        <div class="modal-field">
+          <input type="text" id="accountEmail" placeholder="Email@gmail.com" disabled />
+        </div>
+        <div class="modal-field">
+          <select id="accountGender">
+            <option value="">Gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="na">Prefer not to say</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="accountCancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-solid-accent">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ ADD / EDIT HABIT MODAL ============ -->
+  <div class="modal-overlay" id="habitModal">
+    <div class="modal-card">
+      <button class="icon-btn modal-close" id="habitCloseBtn" aria-label="Close">✕</button>
+      <h2 class="modal-title" id="habitModalTitle">Add Habit</h2>
+      <form id="habitForm">
+        <div class="modal-field">
+          <input type="text" id="habitNameInput" placeholder="Habit name" required />
+        </div>
+        <button type="button" class="btn btn-danger" id="habitDeleteBtn" style="width:100%; margin-bottom:14px; display:none;">Delete habit</button>
+
+        <div class="delete-confirm" id="deleteConfirm">
+          <p>Are you sure you want to delete this habit?</p>
+          <div class="row">
+            <button type="button" class="btn" id="deleteCancelBtn">Cancel</button>
+            <button type="button" class="btn btn-danger solid" id="deleteConfirmBtn">Yes, delete</button>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn" id="habitCancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-solid-accent">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS MODAL ============ -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-card">
+      <button class="icon-btn modal-close" id="settingsCloseBtn" aria-label="Close">✕</button>
+      <h2 class="modal-title">Settings</h2>
+
+      <div class="settings-row">
+        <div>
+          <div class="label"><span class="js-theme-icon" id="settingsThemeIcon">🌙</span> <span class="js-theme-label">Night mode</span></div>
+          <div class="sub">Switch between dark and light theme</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="settingsThemeSwitch" />
+          <span class="track"></span>
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <div>
+          <div class="label">Notifications</div>
+          <div class="sub">Daily reminder to check in</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="notifToggle" />
+          <span class="track"></span>
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <div>
+          <div class="label">Account</div>
+          <div class="sub">Signed in as <span class="js-user-name"></span></div>
+        </div>
+      </div>
+
+      <button class="btn btn-danger" id="settingsLogoutBtn" style="width:100%; margin-top:18px;">Log out</button>
+    </div>
+  </div>
+
+  <script src="js/main.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/chatbot.js"></script>
+</body>
+</html>
