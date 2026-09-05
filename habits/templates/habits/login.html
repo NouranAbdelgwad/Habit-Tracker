@@ -1,42 +1,49 @@
+{% load static %}
+
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Log in — Habit Tracker</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css" />
-</head>
-<body class="auth-page">
-  <header class="auth-header">
-    <div class="brand">
-      <svg class="pulse-icon" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M 0.00053125 0.0016125 L 45.891156 -36.713231 C 45.891156 -36.713231 54.01225 -38.947606 56.820844 -35.767919 C 105.926312 19.798487 497.363812 470.485987 477.680219 696.9938 C 475.0435 727.3688 469.191937 794.724269 418.457562 836.974269 C 366.176312 880.521144 283.445844 883.068019 224.641156 853.126612 C 208.945844 845.138331 176.098187 825.235987 146.57475 775.060206 C 74.69975 652.927394 27.789594 403.173487 9.129437 288.220362 C 7.645062 279.08755 -5.597125 279.4313 -6.624469 288.626612 C -19.792438 406.888331 -50.769 672.485987 -82.757281 856.4938 C -84.202594 864.798487 -95.870563 865.439112 -98.229938 857.349269 L -200.210406 507.454737 C -201.198688 504.060206 -204.311969 501.728175 -207.847125 501.728175 L -478.593219 501.728175 " transform="matrix(1, 0, 0, -1, 542.769, 954.0563)" stroke="var(--accent)" stroke-width="60" stroke-linecap="round" stroke-linejoin="round"/>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Log in — Habit Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/habits/css/style.css" />
+    <script src="/static/habits/js/main.js"></script>
+  </head>
+  <body class="auth-page">
+    <header class="auth-header">
+      <div class="brand">
+        <svg class="pulse-icon" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 0.00053125 0.0016125 L 45.891156 -36.713231 C 45.891156 -36.713231 54.01225 -38.947606 56.820844 -35.767919 C 105.926312 19.798487 497.363812 470.485987 477.680219 696.9938 C 475.0435 727.3688 469.191937 794.724269 418.457562 836.974269 C 366.176312 880.521144 283.445844 883.068019 224.641156 853.126612 C 208.945844 845.138331 176.098187 825.235987 146.57475 775.060206 C 74.69975 652.927394 27.789594 403.173487 9.129437 288.220362 C 7.645062 279.08755 -5.597125 279.4313 -6.624469 288.626612 C -19.792438 406.888331 -50.769 672.485987 -82.757281 856.4938 C -84.202594 864.798487 -95.870563 865.439112 -98.229938 857.349269 L -200.210406 507.454737 C -201.198688 504.060206 -204.311969 501.728175 -207.847125 501.728175 L -478.593219 501.728175 " transform="matrix(1, 0, 0, -1, 542.769, 954.0563)" stroke="var(--accent)" stroke-width="60" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
-      <span class="brand-name">Habit Tracker</span>
-    </div>
-  </header>
+        <span class="brand-name">Habit Tracker</span>
+      </div>
+    </header>
 
-  <div class="auth-center">
-    <div class="auth-card">
-      <h1>Log in</h1>
-      <form id="loginForm" novalidate>
-        <div class="field">
-          <input type="email" id="loginEmail" placeholder="Email@gmail.com" required />
-        </div>
-        <div class="field">
-          <input type="password" id="loginPassword" placeholder="Password" required />
-        </div>
-        <div class="auth-links"><a href="#" onclick="return false;">Forgot password?</a></div>
-        <p class="form-error" id="loginError">Email or Password are wrong *</p>
-        <button type="submit" class="btn btn-solid-accent btn-submit">Log in</button>
-        <div class="auth-links"><span>No account? </span><a href="signup.html" class="accent">Register</a></div>
-      </form>
+    <div class="auth-center">
+      <div class="auth-card">
+        <h1>Log in</h1>
+        <form id="loginForm" novalidate>
+          <div class="field">
+            <input type="email" id="loginEmail" placeholder="Email@gmail.com" required />
+          </div>
+          <div class="field">
+            <input type="password" id="loginPassword" placeholder="Password" required />
+          </div>
+          <div class="auth-links">
+            <a href="#" onclick="return false;">Forgot password?</a>
+          </div>
+          <p class="form-error" id="loginError">Email or Password are wrong *</p>
+          <button type="submit" class="btn btn-solid-accent btn-submit">Log in</button>
+          <div class="auth-links">
+            <span>No account?</span><a href="signup.html" class="accent">Register</a>
+          </div>
+        </form>
+      </div>
     </div>
-  </div>
 
-  <script src="js/main.js"></script>
-  <script src="js/auth.js"></script>
-</body>
+    <script src="js/main.js"></script>
+    <script src="js/auth.js"></script>
+  </body>
 </html>
