@@ -163,13 +163,13 @@ function setCurrentUser(user) {
 }
 function logout() {
   storageRemove(STORAGE_KEYS.currentUser);
-  window.location.href = 'index.html';
+  window.location.href = '/';
 }
 /* Any page that requires auth calls this at load time. */
 function requireAuth() {
   const user = getCurrentUser();
   if (!user) {
-    window.location.href = 'login.html';
+    window.location.href = '/login/';
     return null;
   }
   return user;

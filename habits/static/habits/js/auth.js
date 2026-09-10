@@ -77,7 +77,7 @@ function initSignupPage() {
     users.push(newUser);
     saveUsers(users);
     setCurrentUser(newUser);
-    window.location.href = 'dashboard.html';
+    window.location.href = '/dashboard/';
   });
 }
 
