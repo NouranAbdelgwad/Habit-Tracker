@@ -8,8 +8,7 @@
     <title>Log in — Habit Tracker</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/static/habits/css/style.css" />
-    <script src="/static/habits/js/main.js"></script>
+    <link rel="stylesheet" href="{% static 'habits/css/style.css' %}" />
   </head>
   <body class="auth-page">
     <header class="auth-header">
@@ -24,26 +23,29 @@
     <div class="auth-center">
       <div class="auth-card">
         <h1>Log in</h1>
-        <form id="loginForm" novalidate>
+        <form id="loginForm" method="post" novalidate>
+          {% csrf_token %}
           <div class="field">
-            <input type="email" id="loginEmail" placeholder="Email@gmail.com" required />
+            <input type="text" name="email" id="loginEmail" placeholder="Email@gmail.com" required />
           </div>
           <div class="field">
-            <input type="password" id="loginPassword" placeholder="Password" required />
+            <input type="password" name="password" id="loginPassword" placeholder="Password" required />
           </div>
           <div class="auth-links">
             <a href="#" onclick="return false;">Forgot password?</a>
           </div>
-          <p class="form-error" id="loginError">Email or Password are wrong *</p>
+          {% if error %}
+            <p class="form-error">{{ error }} *</p>
+          {% endif %}
           <button type="submit" class="btn btn-solid-accent btn-submit">Log in</button>
           <div class="auth-links">
-            <span>No account?</span><a href="signup.html" class="accent">Register</a>
+            <span>No account?</span><a href="{% url 'signup' %}" class="accent">Register</a>
           </div>
         </form>
       </div>
     </div>
 
-    <script src="js/main.js"></script>
-    <script src="js/auth.js"></script>
+    <script src="{% static 'habits/js/main.js' %}"></script>
+    <script src="{% static 'habits/js/auth.js' %}"></script>
   </body>
 </html>
