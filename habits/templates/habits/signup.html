@@ -30,16 +30,14 @@
             <label class="error-label">{{ form.username.errors|first }}</label>
           {% endif %}
           <div class="field">
-            <input type="text" name="username" id="signupUsername" placeholder="Enter Your Username"
-                   value="{{ form.username.value|default:'' }}" required />
+            <input type="text" name="username" id="signupUsername" placeholder="Enter Your Username" value="{{ form.username.value|default:'' }}" required />
           </div>
 
           {% if form.email.errors %}
             <label class="error-label">{{ form.email.errors|first }}</label>
           {% endif %}
           <div class="field">
-            <input type="email" name="email" id="signupEmail" placeholder="Email@gmail.com"
-                   value="{{ form.email.value|default:'' }}" required />
+            <input type="email" name="email" id="signupEmail" placeholder="Email@gmail.com" value="{{ form.email.value|default:'' }}" required />
           </div>
 
           {% if form.password1.errors %}
