@@ -735,8 +735,35 @@ button, input, select {
   background: var(--accent);
   border-color: var(--accent);
 }
-.habit-name { font-weight: 700; font-size: 1.25rem; margin-top: 40px; }
+.habit-icon { font-size: 2rem; line-height: 1; margin-top: 40px; }
+.habit-name { font-weight: 700; font-size: 1.25rem; margin-top: 10px; }
 .habit-streak { color: var(--text-muted); margin-top: 6px; font-size: 1rem; }
+
+/* ---------------------------------------------------------------------
+   Icon picker (Add/Edit Habit modal)
+   ------------------------------------------------------------------- */
+.icon-picker-label { font-weight: 600; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; }
+.icon-picker {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.icon-choice {
+  height: 44px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.15s ease, transform 0.12s ease, background 0.15s ease;
+}
+.icon-choice:hover { transform: translateY(-1px); }
+.icon-choice.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
 
 .add-habit-card {
   background: var(--accent-soft);
@@ -965,6 +992,123 @@ button, input, select {
   color: var(--text);
 }
 .chat-inputbar input::placeholder { color: var(--text-faint); font-weight: 600; }
+
+/* ---------------------------------------------------------------------
+   Choose Habit (first-run onboarding)
+   ------------------------------------------------------------------- */
+.onboard-page { min-height: 100vh; }
+.onboard-center {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 64px 24px 96px;
+}
+.onboard-center h1 {
+  text-align: center;
+  font-size: 1.9rem;
+  margin: 0 0 8px;
+}
+.onboard-sub {
+  text-align: center;
+  color: var(--text-muted);
+  margin: 0 0 40px;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.preset-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-family: var(--font);
+  color: var(--text);
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+}
+.preset-card:hover { transform: translateY(-2px); }
+.preset-card .preset-icon { font-size: 2.1rem; }
+.preset-card .preset-name { font-weight: 600; font-size: 0.95rem; }
+.preset-card.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
+}
+.preset-card.another {
+  border-style: dashed;
+}
+
+.custom-habit-panel {
+  display: none;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 28px;
+}
+.custom-habit-panel.open { display: block; }
+.custom-habit-panel h3 { margin: 0 0 16px; font-size: 1.05rem; }
+.custom-habit-panel .icon-picker { grid-template-columns: repeat(10, 1fr); }
+.custom-habit-panel .modal-actions { margin-top: 4px; }
+
+.chosen-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 28px;
+  min-height: 1px;
+}
+.chosen-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.chosen-chip .remove-chip {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-weight: 700;
+  opacity: 0.7;
+  line-height: 1;
+}
+.chosen-chip .remove-chip:hover { opacity: 1; }
+
+.onboard-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.onboard-actions .btn-submit { min-width: 200px; }
+.skip-link {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+@media (max-width: 560px) {
+  .preset-grid { grid-template-columns: repeat(2, 1fr); }
+  .custom-habit-panel .icon-picker { grid-template-columns: repeat(6, 1fr); }
+  .onboard-actions { flex-direction: column-reverse; align-items: stretch; }
+  .onboard-actions .btn-submit { width: 100%; }
+}
 
 /* ---------------------------------------------------------------------
    Responsive

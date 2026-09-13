@@ -6,7 +6,7 @@ class UserProfile(models.Model):
     gender = models.CharField(max_length=10, blank=True, choices=[('male', 'Male'), ('female', 'Female')])
     age = models.IntegerField(null=True, blank=True)
     country = models.CharField(max_length=50, blank=True)
-    profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
+    # profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
     bio = models.TextField(blank=True)
 
     def __str__(self):

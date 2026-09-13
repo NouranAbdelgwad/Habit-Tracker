@@ -5,13 +5,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Log in — Habit Tracker</title>
+    <title>Choose your habits — Habit Tracker</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/static/habits/css/style.css" />
     <script src="/static/habits/js/main.js"></script>
   </head>
-  <body class="auth-page">
+  <body class="onboard-page">
     <header class="auth-header">
       <div class="brand">
         <svg class="pulse-icon" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -21,28 +21,33 @@
       </div>
     </header>
 
-    <div class="auth-center">
-      <div class="auth-card">
-        <h1>Log in</h1>
-        <form id="loginForm" novalidate>
-          <div class="field">
-            <input type="email" id="loginEmail" placeholder="Email@gmail.com" required />
-          </div>
-          <div class="field">
-            <input type="password" id="loginPassword" placeholder="Password" required />
-          </div>
-          <div class="auth-links">
-            <a href="#" onclick="return false;">Forgot password?</a>
-          </div>
-          <p class="form-error" id="loginError">Email or Password are wrong *</p>
-          <button type="submit" class="btn btn-solid-accent btn-submit">Log in</button>
-          <div class="auth-links">
-            <span>No account?</span><a href="/signup/" class="accent">Register</a>
-          </div>
-        </form>
+    <div class="onboard-center">
+      <h1>What do you want to build?</h1>
+      <p class="onboard-sub">Pick a few habits to start with — you can add, edit, or remove them anytime later.</p>
+
+      <div class="preset-grid" id="presetGrid"></div>
+
+      <div class="custom-habit-panel" id="customPanel">
+        <h3>Add your own habit</h3>
+        <div class="modal-field">
+          <input type="text" id="customNameInput" placeholder="Habit name" maxlength="60" />
+        </div>
+        <div class="icon-picker-label">Icon</div>
+        <div class="icon-picker" id="customIconPicker"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="customCancelBtn">Cancel</button>
+          <button type="button" class="btn btn-solid-accent" id="customAddBtn">Add habit</button>
+        </div>
+      </div>
+
+      <div class="chosen-chips" id="chosenChips"></div>
+
+      <div class="onboard-actions">
+        <button type="button" class="skip-link" id="skipBtn">Skip for now</button>
+        <button type="button" class="btn btn-solid-accent btn-submit" id="continueBtn">Continue</button>
       </div>
     </div>
 
-    <script src="/static/habits/js/auth.js"></script>
+    <script src="/static/habits/js/choose-habit.js"></script>
   </body>
 </html>

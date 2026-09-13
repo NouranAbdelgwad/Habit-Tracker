@@ -4,10 +4,15 @@
 
 let currentPeriod = 'week'; // 'week' | 'month' | 'year'
 let editingHabitId = null;
+let selectedHabitIcon = '⭐';
 
 document.addEventListener('DOMContentLoaded', () => {
   const user = requireAuth();
   if (!user) return;
+  if (!user.onboarded) {
+    window.location.href = '/choose-habit/';
+    return;
+  }
 
   renderUserBits(user);
   renderPeriodDropdown();
@@ -232,6 +237,7 @@ function buildHabitCard(habit) {
     <button class="checkin-toggle ${checked ? 'checked' : ''}" type="button" aria-label="Toggle check-in">
       ${checked ? '✓' : ''}
     </button>
+    <div class="habit-icon">${habit.icon || '⭐'}</div>
     <div class="habit-name">${escapeHtml(habit.name)}</div>
     <div class="habit-streak">${streak} day streak</div>
   `;
@@ -295,6 +301,7 @@ function closeAccountModal() {
 function initHabitModal() {
   document.getElementById('habitCancelBtn').addEventListener('click', closeHabitModal);
   document.getElementById('habitCloseBtn').addEventListener('click', closeHabitModal);
+  renderHabitIconPicker();
 
   document.getElementById('habitForm').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -305,15 +312,11 @@ function initHabitModal() {
     if (editingHabitId) {
       const h = habits.find(h => h.id === editingHabitId);
       h.name = name;
+      h.icon = selectedHabitIcon;
+      saveHabits(habits);
     } else {
-      habits.push({
-        id: 'h' + Date.now(),
-        name,
-        createdAt: formatDate(new Date()),
-        checkins: {}
-      });
+      addHabit(name, selectedHabitIcon);
     }
-    saveHabits(habits);
     renderHabits();
     renderDayGrid();
     closeHabitModal();
@@ -335,6 +338,32 @@ function initHabitModal() {
   });
 }
 
+/* Renders the small emoji grid inside the Add/Edit Habit modal. Built
+   once; openHabitModal() just updates which button looks selected. */
+function renderHabitIconPicker() {
+  const wrap = document.getElementById('habitIconPicker');
+  if (!wrap || wrap.childElementCount) return;
+  HABIT_ICON_CHOICES.forEach(icon => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'icon-choice';
+    btn.textContent = icon;
+    btn.addEventListener('click', () => {
+      selectedHabitIcon = icon;
+      syncHabitIconPicker();
+    });
+    wrap.appendChild(btn);
+  });
+  syncHabitIconPicker();
+}
+function syncHabitIconPicker() {
+  const wrap = document.getElementById('habitIconPicker');
+  if (!wrap) return;
+  wrap.querySelectorAll('.icon-choice').forEach(btn => {
+    btn.classList.toggle('selected', btn.textContent === selectedHabitIcon);
+  });
+}
+
 function openHabitModal(habitId) {
   editingHabitId = habitId;
   const isEdit = !!habitId;
@@ -345,9 +374,12 @@ function openHabitModal(habitId) {
   if (isEdit) {
     const habit = getHabits().find(h => h.id === habitId);
     document.getElementById('habitNameInput').value = habit.name;
+    selectedHabitIcon = habit.icon || '⭐';
   } else {
     document.getElementById('habitNameInput').value = '';
+    selectedHabitIcon = '⭐';
   }
+  syncHabitIconPicker();
   document.getElementById('habitModal').classList.add('open');
 }
 function closeHabitModal() {

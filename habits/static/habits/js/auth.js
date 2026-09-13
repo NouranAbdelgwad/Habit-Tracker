@@ -18,7 +18,7 @@ function initLoginPage() {
     if (match) {
       errorEl.classList.remove('visible');
       setCurrentUser(match);
-      window.location.href = 'dashboard.html';
+      window.location.href = match.onboarded ? '/dashboard/' : '/choose-habit/';
     } else {
       errorEl.classList.add('visible');
     }
@@ -73,11 +73,12 @@ function initSignupPage() {
 
     if (hasError) return;
 
-    const newUser = { username, email, password, name: username, gender: '' };
+    const newUser = { username, email, password, name: username, gender: '', onboarded: false };
     users.push(newUser);
     saveUsers(users);
     setCurrentUser(newUser);
-    window.location.href = '/dashboard/';
+    // First-time users pick their starting habits before seeing the dashboard.
+    window.location.href = '/choose-habit/';
   });
 }
 

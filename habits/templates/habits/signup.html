@@ -8,7 +8,8 @@
     <title>Create account — Habit Tracker</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="{% static 'habits/css/style.css' %}" />
+    <link rel="stylesheet" href="/static/habits/css/style.css" />
+    <script src="/static/habits/js/main.js"></script>
   </head>
   <body class="auth-page">
     <header class="auth-header">
@@ -23,46 +24,33 @@
     <div class="auth-center">
       <div class="auth-card">
         <h1>Create account</h1>
-        <form id="signupForm" method="post" novalidate>
-          {% csrf_token %}
-
-          {% if form.username.errors %}
-            <label class="error-label">{{ form.username.errors|first }}</label>
-          {% endif %}
+        <form id="signupForm" novalidate>
           <div class="field">
             <input type="text" name="username" id="signupUsername" placeholder="Enter Your Username" value="{{ form.username.value|default:'' }}" required />
+            <label class="error-label" id="usernameError">Your Username is used *</label>
+            <input type="text" id="signupUsername" placeholder="Enter Your Username" required />
           </div>
-
-          {% if form.email.errors %}
-            <label class="error-label">{{ form.email.errors|first }}</label>
-          {% endif %}
           <div class="field">
             <input type="email" name="email" id="signupEmail" placeholder="Email@gmail.com" value="{{ form.email.value|default:'' }}" required />
+            <label class="error-label" id="emailError">Your Email is used *</label>
+            <input type="email" id="signupEmail" placeholder="Email@gmail.com" required />
           </div>
-
-          {% if form.password1.errors %}
-            <label class="error-label">{{ form.password1.errors|first }}</label>
-          {% endif %}
           <div class="field">
-            <input type="password" name="password1" id="signupPassword" placeholder="Password" required />
+            <label class="error-label" id="passwordError">Email or Password are wrong *</label>
+            <input type="password" id="signupPassword" placeholder="Password" required />
           </div>
-
-          {% if form.password2.errors %}
-            <label class="error-label">{{ form.password2.errors|first }}</label>
-          {% endif %}
           <div class="field">
-            <input type="password" name="password2" id="signupConfirm" placeholder="Confirm password" required />
+            <label class="error-label" id="confirmError">Email or Password are wrong *</label>
+            <input type="password" id="signupConfirm" placeholder="Password" required />
           </div>
-
           <button type="submit" class="btn btn-solid-accent btn-submit">Register</button>
           <div class="auth-links">
-            <span>Already have an account?</span><a href="{% url 'login' %}" class="accent">Login</a>
+            <span>Already have an account?</span><a href="/login/" class="accent">Login</a>
           </div>
         </form>
       </div>
     </div>
 
-    <script src="{% static 'habits/js/main.js' %}"></script>
-    <script src="{% static 'habits/js/auth.js' %}"></script>
+    <script src="/static/habits/js/auth.js"></script>
   </body>
 </html>
