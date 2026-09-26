@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'habits'
+    'habits.apps.HabitsConfig',
 ]
 
 MIDDLEWARE = [
@@ -117,12 +117,18 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Auth redirects
+# https://docs.djangoproject.com/en/6.1/ref/settings/#login-url
+
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'index'
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

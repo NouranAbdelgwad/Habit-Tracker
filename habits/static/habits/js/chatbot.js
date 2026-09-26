@@ -1,5 +1,9 @@
 /* =========================================================================
    chatbot.js — chat overlay (slides up over the dashboard, never navigates)
+   -------------------------------------------------------------------------
+   Messages are persisted server-side via ChatSession/ChatMessage (see
+   views.py: list_chats, chat_detail, chatbot_message). This file just
+   drives the UI and talks to those endpoints through apiFetch().
    ========================================================================= */
 
 let activeChatId = null;
@@ -24,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-function openChatbot(chatId) {
+async function openChatbot(chatId) {
   const overlay = document.getElementById('chatbotOverlay');
   overlay.classList.add('open');
   activeChatId = chatId;
@@ -34,11 +38,16 @@ function openChatbot(chatId) {
   thread.innerHTML = '';
 
   if (chatId) {
-    const chat = getChats().find(c => c.id === chatId);
-    if (chat && chat.messages.length) {
-      emptyState.classList.add('hidden');
-      chat.messages.forEach(m => appendBubble(m.sender, m.text, false));
-    } else {
+    try {
+      const chat = await apiFetch(`/api/chats/${chatId}/`);
+      if (chat.messages && chat.messages.length) {
+        emptyState.classList.add('hidden');
+        chat.messages.forEach(m => appendBubble(m.sender, m.text, false));
+      } else {
+        emptyState.classList.remove('hidden');
+      }
+    } catch (err) {
+      console.error('Failed to load chat', err);
       emptyState.classList.remove('hidden');
     }
   } else {
@@ -52,36 +61,36 @@ function closeChatbot() {
   document.getElementById('chatbotOverlay').classList.remove('open');
 }
 
-function sendChatMessage(text) {
+async function sendChatMessage(text) {
   const emptyState = document.getElementById('chatEmptyState');
   emptyState.classList.add('hidden');
-
-  // Create (or reuse) a chat record so this shows up in History.
-  const chats = getChats();
-  let chat = chats.find(c => c.id === activeChatId);
-  if (!chat) {
-    chat = { id: 'c' + Date.now(), title: text.slice(0, 40), messages: [] };
-    chats.unshift(chat);
-    activeChatId = chat.id;
-  }
-
-  chat.messages.push({ sender: 'user', text });
   appendBubble('user', text, true);
-  saveChats(chats);
-  if (typeof renderHistoryList === 'function') renderHistoryList(); // refresh the sidebar's History list
 
   const thread = document.getElementById('chatThread');
   thread.scrollTop = thread.scrollHeight;
 
-  setTimeout(() => {
-    const reply = "Got it! (This is a placeholder response — AI backend not connected yet.)";
-    const freshChats = getChats();
-    const c = freshChats.find(c => c.id === activeChatId);
-    c.messages.push({ sender: 'bot', text: reply });
-    saveChats(freshChats);
-    appendBubble('bot', reply, true);
+  try {
+    const payload = { message: text };
+    if (activeChatId) payload.chat_id = activeChatId;
+
+    const result = await apiFetch('/api/chat/', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    const isNewChat = !activeChatId;
+    activeChatId = result.chat_id;
+
+    appendBubble('bot', result.reply, true);
     thread.scrollTop = thread.scrollHeight;
-  }, 700);
+
+    if (isNewChat && typeof refreshHistoryList === 'function') {
+      refreshHistoryList(); // new chat now shows up in the sidebar's History list
+    }
+  } catch (err) {
+    console.error('Failed to send message', err);
+    appendBubble('bot', 'Sorry, something went wrong sending that.', true);
+  }
 }
 
 function appendBubble(sender, text, animate) {
@@ -92,4 +101,3 @@ function appendBubble(sender, text, animate) {
   bubble.textContent = text;
   thread.appendChild(bubble);
 }
-

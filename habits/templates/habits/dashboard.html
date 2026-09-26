@@ -4,11 +4,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="csrf-token" content="{{ csrf_token }}">
 <title>Dashboard — Habit Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/habits/css/style.css">
-<script src="/static/habits/js/main.js"></script>
+<link rel="stylesheet" href="{% static 'habits/css/style.css' %}">
+<script src="{% static 'habits/js/main.js' %}"></script>
+</head>
 <body>
   <div class="app-shell">
 
@@ -215,7 +217,12 @@
     </div>
   </div>
 
-  <script src="/static/habits/js/dashboard.js"></script>
-  <script src="/static/habits/js/chatbot.js"></script>
+  <!-- Server-rendered initial data for dashboard.js to read on load.
+       Access it in JS with:
+       const dashboardData = JSON.parse(document.getElementById('dashboard-data').textContent); -->
+  {{ dashboard_data|json_script:"dashboard-data" }}
+
+  <script src="{% static 'habits/js/dashboard.js' %}"></script>
+  <script src="{% static 'habits/js/chatbot.js' %}"></script>
 </body>
 </html>
