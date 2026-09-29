@@ -25,6 +25,10 @@ class UserProfile(models.Model):
     # profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
     bio = models.TextField(blank=True)
     onboarded = models.BooleanField(default=False)
+    bio = models.TextField(blank=True)
+    onboarded = models.BooleanField(default=False)
+    # True once the user proved they own the email (clicked the link we sent).
+    email_verified = models.BooleanField(default=False)
 
     def __str__(self):
         return self.user.username

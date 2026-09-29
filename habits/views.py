@@ -268,12 +268,12 @@ def login_view(request):
         'error': error,
         'notice': 'Email confirmed! You can log in now.' if request.GET.get('verified') else None,
     })
-        username = identifier
-        if '@' in identifier:
-            try:
-                username = User.objects.get(email__iexact=identifier).username
-            except User.DoesNotExist:
-                username = None
+    username = identifier
+    if '@' in identifier:
+        try:
+            username = User.objects.get(email__iexact=identifier).username
+        except User.DoesNotExist:
+            username = None
 
         user = authenticate(request, username=username, password=password) if username else None
         if user is not None:
@@ -281,7 +281,6 @@ def login_view(request):
             profile = _get_or_create_profile(user)
             return redirect('dashboard' if profile.onboarded else 'choose-habit')
         error = "Email or Password are wrong"
-
     return render(request, 'habits/login.html', {'error': error})
 
 
