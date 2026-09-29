@@ -170,3 +170,5 @@ if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
 else:
     EMAIL_BACKEND = 'habits.console_email.EmailBackend'
     DEFAULT_FROM_EMAIL = 'Habit Tracker <no-reply@habittracker.local>'
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

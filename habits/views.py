@@ -17,6 +17,14 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from datetime import timedelta, date as date_cls
+
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.http import JsonResponse, HttpResponseBadRequest
+from django.shortcuts import redirect, render, get_object_or_404
+from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 
 from .forms import SignupForm
@@ -216,6 +224,9 @@ def signup_view(request):
             profile.save(update_fields=['email_verified'])
             _send_verification_email(request, user)
             return render(request, 'habits/verify-email.html', {'state': 'sent', 'email': user.email})
+            user = form.save()
+            login(request, user)
+            return redirect('choose-habit')
         return render(request, 'habits/signup.html', {'form': form})
 
     form = SignupForm()
@@ -257,6 +268,21 @@ def login_view(request):
         'error': error,
         'notice': 'Email confirmed! You can log in now.' if request.GET.get('verified') else None,
     })
+        username = identifier
+        if '@' in identifier:
+            try:
+                username = User.objects.get(email__iexact=identifier).username
+            except User.DoesNotExist:
+                username = None
+
+        user = authenticate(request, username=username, password=password) if username else None
+        if user is not None:
+            login(request, user)
+            profile = _get_or_create_profile(user)
+            return redirect('dashboard' if profile.onboarded else 'choose-habit')
+        error = "Email or Password are wrong"
+
+    return render(request, 'habits/login.html', {'error': error})
 
 
 def logout_view(request):
@@ -404,6 +430,12 @@ def dashboard(request):
 
     dashboard_data = {
         'user': _serialize_account(user, profile),
+        'user': {
+            'name': user.get_full_name() or user.username,
+            'email': user.email,
+            'initial': (user.get_full_name() or user.username)[:1].upper(),
+            'gender': profile.gender,
+        },
         'habits': [_serialize_habit(h) for h in habits],
         'grid': _week_grid(user),
         'history': _serialize_history(user),
@@ -558,6 +590,28 @@ def update_account(request):
     profile.save()
 
     return JsonResponse(_serialize_account(user, profile))
+    """POST /api/account/update/ — body: {name, gender}"""
+    try:
+        payload = json.loads(request.body)
+    except json.JSONDecodeError:
+        return HttpResponseBadRequest('Invalid JSON')
+
+    user = request.user
+    profile = _get_or_create_profile(user)
+
+    full_name = (payload.get('name') or '').strip()
+    if full_name:
+        parts = full_name.split(' ', 1)
+        user.first_name = parts[0]
+        user.last_name = parts[1] if len(parts) > 1 else ''
+        user.save(update_fields=['first_name', 'last_name'])
+
+    gender = payload.get('gender')
+    if gender in ('male', 'female', ''):
+        profile.gender = gender
+        profile.save(update_fields=['gender'])
+
+    return JsonResponse({'name': user.get_full_name() or user.username, 'gender': profile.gender})
 
 
 @login_required
