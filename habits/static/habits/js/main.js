@@ -87,9 +87,13 @@ function getCsrfToken() {
 
 async function apiFetch(url, options = {}) {
   const opts = Object.assign({}, options);
+  // FormData bodies (used for the profile-photo upload) must NOT get a
+  // manual Content-Type — the browser sets one itself with the correct
+  // multipart boundary. Only plain JSON bodies get the JSON header.
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   opts.headers = Object.assign(
     { 'X-CSRFToken': getCsrfToken() },
-    options.body ? { 'Content-Type': 'application/json' } : {},
+    (options.body && !isFormData) ? { 'Content-Type': 'application/json' } : {},
     options.headers || {}
   );
   const res = await fetch(url, opts);

@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="{% static 'habits/css/style.css' %}" />
+    <script src="{% static 'habits/js/main.js' %}"></script>
   </head>
   <body class="auth-page">
     <header class="auth-header">
@@ -32,8 +33,11 @@
             <input type="password" name="password" id="loginPassword" placeholder="Password" required />
           </div>
           <div class="auth-links">
-            <a href="#" onclick="return false;">Forgot password?</a>
+            <a href="{% url 'forgot_password' %}">Forgot password?</a>
           </div>
+          {% if notice %}
+            <p class="form-error visible" style="color:var(--accent);">{{ notice }}</p>
+          {% endif %}
           {% if error %}
             <p class="form-error visible" id="loginError">{{ error }} *</p>
           {% endif %}
@@ -42,6 +46,13 @@
             <span>No account?</span><a href="{% url 'signup' %}" class="accent">Register</a>
           </div>
         </form>
+        {% if unverified_email %}
+            <form method="post" action="{% url 'resend_verification' %}" style="margin-bottom:8px;">
+              {% csrf_token %}
+              <input type="hidden" name="email" value="{{ unverified_email }}" />
+              <div class="auth-links"><button type="submit" class="accent" style="border:none;background:none;cursor:pointer;">Resend confirmation email</button></div>
+            </form>
+          {% endif %}
       </div>
     </div>
   </body>

@@ -26,9 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
   renderHabits();
   initSidebar();
   initPeriodDropdown();
-  initAccountModal();
   initHabitModal();
   initSettingsModal();
+  initAccountSection();
   initThemeControls();
 
   document.addEventListener('themechange', () => {
@@ -42,6 +42,33 @@ document.addEventListener('DOMContentLoaded', () => {
 function renderUserBits(user) {
   document.querySelectorAll('.js-user-name').forEach(el => el.textContent = user.name);
   document.querySelectorAll('.js-user-initial').forEach(el => el.textContent = (user.initial || '?').toUpperCase());
+  // Every element carrying .js-user-avatar (sidebar) plus the Settings preview
+  // is rendered with the same logic: uploaded photo > chosen icon > initial.
+  document.querySelectorAll('.js-user-avatar').forEach(el => renderAvatar(el, user));
+  const removeBtn = document.getElementById('accountPhotoRemoveBtn');
+  if (removeBtn) removeBtn.style.display = user.photo_url ? 'inline-flex' : 'none';
+}
+
+/* Fills an avatar element with the user's photo/icon (photo_url), or falls
+   back to their initial when there isn't one. Works for any avatar element. */
+function renderAvatar(avatarEl, user) {
+  if (!avatarEl) return;
+  if (user.photo_url) {
+    let img = avatarEl.querySelector('img');
+    if (!img) {
+      avatarEl.innerHTML = '';
+      img = document.createElement('img');
+      img.alt = 'Profile photo';
+      avatarEl.appendChild(img);
+    }
+    img.src = user.photo_url;
+  } else {
+    avatarEl.innerHTML = '';
+    const span = document.createElement('span');
+    span.className = 'js-user-initial';
+    span.textContent = (user.initial || '?').toUpperCase();
+    avatarEl.appendChild(span);
+  }
 }
 
 /* ---------------------------------------------------------------------
@@ -62,7 +89,13 @@ function initSidebar() {
   });
   refreshHistoryList();
 
-  document.getElementById('viewAccountBtn').addEventListener('click', openAccountModal);
+  // Account fields now live inside the Settings modal, so "View Account"
+  // opens Settings and scrolls straight to the Account section.
+  document.getElementById('viewAccountBtn').addEventListener('click', () => {
+    document.getElementById('settingsModal').classList.add('open');
+    syncThemeSwitches();
+    document.querySelector('.account-section')?.scrollIntoView({ block: 'start' });
+  });
 }
 
 async function refreshHistoryList() {
@@ -232,41 +265,96 @@ function buildHabitCard(habit) {
 }
 
 /* ---------------------------------------------------------------------
-   Account modal
+   Account section (inside the Settings modal) — name, email, gender,
+   age, country, bio, and the profile photo (upload / take a photo /
+   remove). Every save goes through /api/account/update/ using FormData
+   so the optional photo file can ride along with the text fields.
    ------------------------------------------------------------------- */
-function initAccountModal() {
-  document.getElementById('accountCloseBtn').addEventListener('click', closeAccountModal);
-  document.getElementById('accountCancelBtn').addEventListener('click', closeAccountModal);
+function initAccountSection() {
+  populateAccountFields(dashboardData.user);
+
+  const photoInput = document.getElementById('accountPhotoInput');
+  document.getElementById('accountPhotoBtn').addEventListener('click', () => photoInput.click());
+
+  // "Pick an icon" toggles the icon row open/closed, same interaction
+  // level as the "Change photo" button next to it.
+  document.getElementById('accountIconPickerBtn').addEventListener('click', () => {
+    const picker = document.getElementById('avatarIconPicker');
+    picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+  });
+
+  // Selecting a file here (from either "Take Photo" or "Photo Library" on
+  // mobile — the plain file input with no "capture" attribute lets the OS
+  // offer both) uploads it right away, independent of the Save button.
+  photoInput.addEventListener('change', async () => {
+    const file = photoInput.files[0];
+    if (!file) return;
+    await saveAccountFields(new FormData(), file);
+    photoInput.value = '';
+  });
+
+  document.getElementById('accountPhotoRemoveBtn').addEventListener('click', async () => {
+    const fd = new FormData();
+    fd.append('remove_photo', '1');
+    await saveAccountFields(fd);
+  });
+
+  document.querySelectorAll('.avatar-icon-option').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const fd = new FormData();
+      fd.append('avatar_icon', btn.dataset.icon);
+      await saveAccountFields(fd);
+    });
+  });
+
   document.getElementById('accountForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = document.getElementById('accountName').value.trim();
-    const gender = document.getElementById('accountGender').value;
-    try {
-      const result = await apiFetch('/api/account/update/', {
-        method: 'POST',
-        body: JSON.stringify({ name, gender }),
-      });
-      dashboardData.user.name = result.name;
-      dashboardData.user.initial = (result.name || '?')[0].toUpperCase();
-      dashboardData.user.gender = result.gender;
-      renderUserBits(dashboardData.user);
-      closeAccountModal();
-    } catch (err) {
-      console.error('Failed to update account', err);
-      alert('Could not save your changes. Please try again.');
+    const fd = new FormData();
+    fd.append('name', document.getElementById('accountName').value.trim());
+    fd.append('gender', document.getElementById('accountGender').value);
+    fd.append('age', document.getElementById('accountAge').value.trim());
+    fd.append('country', document.getElementById('accountCountry').value.trim());
+    fd.append('bio', document.getElementById('accountBio').value.trim());
+    const ok = await saveAccountFields(fd);
+    if (ok) {
+      document.getElementById('settingsModal').classList.remove('open');
     }
   });
 }
 
-function openAccountModal() {
-  const user = dashboardData.user;
-  document.getElementById('accountName').value = user.name;
-  document.getElementById('accountEmail').placeholder = user.email;
+function populateAccountFields(user) {
+  document.getElementById('accountName').value = user.name || '';
+  document.getElementById('accountEmail').placeholder = user.email || '';
   document.getElementById('accountGender').value = user.gender || '';
-  document.getElementById('accountModal').classList.add('open');
+  document.getElementById('accountAge').value = user.age != null ? user.age : '';
+  document.getElementById('accountCountry').value = user.country || '';
+  document.getElementById('accountBio').value = user.bio || '';
+  document.querySelectorAll('.avatar-icon-option').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.icon === user.avatar_icon);
+  });
 }
-function closeAccountModal() {
-  document.getElementById('accountModal').classList.remove('open');
+
+async function saveAccountFields(formData, photoFile) {
+  if (photoFile) formData.append('photo', photoFile);
+  const errorEl = document.getElementById('accountError');
+  errorEl.style.display = 'none';
+  try {
+    const result = await apiFetch('/api/account/update/', { method: 'POST', body: formData });
+    dashboardData.user = result;
+    populateAccountFields(result);
+    renderUserBits(result);
+    return true;
+  } catch (err) {
+    console.error('Failed to update account', err);
+    let message = 'Could not save your changes. Please try again.';
+    try {
+      const parsed = JSON.parse(err.message.slice(err.message.indexOf('{')));
+      if (parsed && parsed.error) message = parsed.error;
+    } catch (parseErr) { /* fall back to the generic message */ }
+    errorEl.textContent = message;
+    errorEl.style.display = 'block';
+    return false;
+  }
 }
 
 /* ---------------------------------------------------------------------

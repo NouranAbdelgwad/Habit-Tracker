@@ -48,7 +48,7 @@
 
       <div class="user-block">
         <div class="user-name-block">
-          <div class="avatar"><span class="js-user-initial"></span></div>
+          <div class="avatar js-user-avatar"><span class="js-user-initial"></span></div>
           <span class="js-user-name"></span>
         </div>
         <button class="view-account-btn" id="viewAccountBtn"><span>View Account</span></button>
@@ -121,34 +121,6 @@
     </main>
   </div>
 
-  <!-- ============ ACCOUNT MODAL ============ -->
-  <div class="modal-overlay" id="accountModal">
-    <div class="modal-card">
-      <button class="icon-btn modal-close" id="accountCloseBtn" aria-label="Close">✕</button>
-      <div class="modal-avatar">👤</div>
-      <form id="accountForm">
-        <div class="modal-field">
-          <input type="text" id="accountName" placeholder="Name" />
-        </div>
-        <div class="modal-field">
-          <input type="text" id="accountEmail" placeholder="Email@gmail.com" disabled />
-        </div>
-        <div class="modal-field">
-          <select id="accountGender">
-            <option value="">Gender</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="na">Prefer not to say</option>
-          </select>
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn" id="accountCancelBtn">Cancel</button>
-          <button type="submit" class="btn btn-solid-accent">Save</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
   <!-- ============ ADD / EDIT HABIT MODAL ============ -->
   <div class="modal-overlay" id="habitModal">
     <div class="modal-card">
@@ -206,11 +178,61 @@
         </label>
       </div>
 
-      <div class="settings-row">
-        <div>
-          <div class="label">Account</div>
-          <div class="sub">Signed in as <span class="js-user-name"></span></div>
+      <div class="account-section">
+        <div class="label" style="margin-bottom: 14px;">Account</div>
+
+        <div class="account-photo-row">
+          <div class="account-avatar js-user-avatar" id="accountAvatarPreview"><span class="js-user-initial"></span></div>
+          <div class="account-photo-actions">
+            <!-- No "capture" attribute on purpose: on phones this lets the
+                 OS show its normal picker with BOTH "Take Photo" and
+                 "Photo Library" options, instead of forcing the camera. -->
+            <button type="button" class="btn" id="accountPhotoBtn">Change photo</button>
+            <button type="button" class="btn" id="accountIconPickerBtn">Pick an icon</button>
+            <button type="button" class="btn btn-danger" id="accountPhotoRemoveBtn" style="display:none;">Remove</button>
+            <input type="file" id="accountPhotoInput" accept="image/*" hidden />
+          </div>
         </div>
+
+        <div class="avatar-icon-picker" id="avatarIconPicker" style="display:none;">
+          <button type="button" class="avatar-icon-option" data-icon="avatar-1" aria-label="Avatar 1">
+            <img src="{% static 'habits/img/avatars/avatar-1.png' %}" alt="Avatar 1" />
+          </button>
+          <button type="button" class="avatar-icon-option" data-icon="avatar-2" aria-label="Avatar 2">
+            <img src="{% static 'habits/img/avatars/avatar-2.png' %}" alt="Avatar 2" />
+          </button>
+          <p class="avatar-attribution">Icons by <a href="https://www.flaticon.com/authors/magnific" target="_blank" rel="noopener">Magnific – Flaticon</a></p>
+        </div>
+
+        <form id="accountForm">
+          <div class="modal-field">
+            <input type="text" id="accountName" placeholder="Name" />
+          </div>
+          <div class="modal-field">
+            <input type="text" id="accountEmail" placeholder="Email@gmail.com" disabled />
+          </div>
+          <div class="modal-field">
+            <select id="accountGender">
+              <option value="">Gender</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="na">Prefer not to say</option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <input type="number" id="accountAge" placeholder="Age" min="1" max="129" />
+          </div>
+          <div class="modal-field">
+            <input type="text" id="accountCountry" placeholder="Country" />
+          </div>
+          <div class="modal-field">
+            <textarea id="accountBio" placeholder="Bio" rows="3"></textarea>
+          </div>
+          <p class="account-error" id="accountError" style="display:none;"></p>
+          <div class="modal-actions">
+            <button type="submit" class="btn btn-solid-accent">Save account</button>
+          </div>
+        </form>
       </div>
 
       <button class="btn btn-danger" id="settingsLogoutBtn" style="width:100%; margin-top:18px;">Log out</button>

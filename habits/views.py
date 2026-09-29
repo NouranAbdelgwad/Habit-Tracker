@@ -1,4 +1,22 @@
 import json
+import logging
+from datetime import timedelta, date as date_cls
+
+from django.conf import settings
+from django.templatetags.static import static as static_url
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
+from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
+from django.http import JsonResponse, HttpResponseBadRequest
+from django.shortcuts import redirect, render, get_object_or_404
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from datetime import timedelta, date as date_cls
 
 from django.contrib.auth import authenticate, login, logout
@@ -20,6 +38,59 @@ from .models import ChatMessage, ChatSession, Habit, HabitLog, UserProfile
 def _get_or_create_profile(user):
     profile, _ = UserProfile.objects.get_or_create(user=user)
     return profile
+
+
+def _send_email(user, subject, body):
+    """Sends an email to the user. Failures (bad SMTP settings, no network)
+    are logged to the terminal instead of crashing the page."""
+    try:
+        send_mail(subject, body, None, [user.email], fail_silently=False)
+        return True
+    except Exception:
+        logging.getLogger(__name__).exception('Could not send email to %s', user.email)
+        return False
+
+
+def _send_verification_email(request, user):
+    uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    link = request.build_absolute_uri(
+        reverse('verify_email', kwargs={'uidb64': uidb64, 'token': token})
+    )
+    return _send_email(
+        user,
+        'Confirm your Habit Tracker email',
+        f"Hi {user.get_full_name() or user.username},\n\n"
+        "Welcome to Habit Tracker! Confirm your email address to activate "
+        f"your account:\n\n{link}\n\n"
+        "If you didn't create this account, you can ignore this email.",
+    )
+
+
+def _serialize_account(user, profile):
+    """Full set of fields shown in Settings → Account (name, gender, age,
+    country, bio, profile photo). photo_url prefers an uploaded photo;
+    if there isn't one but the user picked a preset avatar icon, that
+    icon's static URL is used instead; otherwise it's null and the UI
+    falls back to showing the user's initial."""
+    if profile.profile_picture:
+        photo_url = profile.profile_picture.url
+    elif profile.avatar_icon:
+        photo_url = static_url(f'habits/img/avatars/{profile.avatar_icon}.png')
+    else:
+        photo_url = None
+
+    return {
+        'name': user.get_full_name() or user.username,
+        'email': user.email,
+        'initial': (user.get_full_name() or user.username)[:1].upper(),
+        'gender': profile.gender,
+        'age': profile.age,
+        'country': profile.country,
+        'bio': profile.bio,
+        'avatar_icon': profile.avatar_icon,
+        'photo_url': photo_url,
+    }
 
 
 def _day_status(user, day):
@@ -145,6 +216,14 @@ def signup_view(request):
     if request.method == 'POST':
         form = SignupForm(request.POST)
         if form.is_valid():
+            user = form.save(commit=False)
+            user.email = form.cleaned_data['email']
+            user.save()
+            profile = _get_or_create_profile(user)
+            profile.email_verified = False
+            profile.save(update_fields=['email_verified'])
+            _send_verification_email(request, user)
+            return render(request, 'habits/verify-email.html', {'state': 'sent', 'email': user.email})
             user = form.save()
             login(request, user)
             return redirect('choose-habit')
@@ -164,12 +243,37 @@ def login_view(request):
         password = request.POST.get('password', '')
 
         # Allow signing in with either the username or the email address.
-        username = identifier
+        # Both lookups ignore letter case (Osama == osama); signup already
+        # forbids two usernames that differ only by case.
         if '@' in identifier:
-            try:
-                username = User.objects.get(email__iexact=identifier).username
-            except User.DoesNotExist:
-                username = None
+            match = User.objects.filter(email__iexact=identifier).first()
+        else:
+            match = (User.objects.filter(username=identifier).first()
+                     or User.objects.filter(username__iexact=identifier).first())
+        username = match.username if match else None
+
+        user = authenticate(request, username=username, password=password) if username else None
+        if user is not None:
+            profile = _get_or_create_profile(user)
+            if not profile.email_verified:
+                return render(request, 'habits/login.html', {
+                    'error': 'Please confirm your email first. Check your inbox',
+                    'unverified_email': user.email,
+                })
+            login(request, user)
+            return redirect('dashboard' if profile.onboarded else 'choose-habit')
+        error = "Email or Password are wrong"
+
+    return render(request, 'habits/login.html', {
+        'error': error,
+        'notice': 'Email confirmed! You can log in now.' if request.GET.get('verified') else None,
+    })
+    username = identifier
+    if '@' in identifier:
+        try:
+            username = User.objects.get(email__iexact=identifier).username
+        except User.DoesNotExist:
+            username = None
 
         user = authenticate(request, username=username, password=password) if username else None
         if user is not None:
@@ -177,13 +281,121 @@ def login_view(request):
             profile = _get_or_create_profile(user)
             return redirect('dashboard' if profile.onboarded else 'choose-habit')
         error = "Email or Password are wrong"
-
     return render(request, 'habits/login.html', {'error': error})
 
 
 def logout_view(request):
     logout(request)
     return redirect('index')
+
+
+def verify_email_view(request, uidb64, token):
+    """Link from the confirmation email: marks the email as verified."""
+    try:
+        user = User.objects.get(pk=force_str(urlsafe_base64_decode(uidb64)))
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is not None and default_token_generator.check_token(user, token):
+        profile = _get_or_create_profile(user)
+        profile.email_verified = True
+        profile.save(update_fields=['email_verified'])
+        return redirect(reverse('login') + '?verified=1')
+    return render(request, 'habits/verify-email.html', {'state': 'invalid'})
+
+
+def resend_verification_view(request):
+    """POST: re-sends the confirmation email (same reply whether or not the
+    address exists, so it can't be used to discover registered emails)."""
+    email = (request.POST.get('email') or '').strip()
+    if request.method == 'POST' and email:
+        user = User.objects.filter(email__iexact=email).first()
+        if user is not None and not _get_or_create_profile(user).email_verified:
+            _send_verification_email(request, user)
+    return render(request, 'habits/verify-email.html', {'state': 'sent', 'email': email})
+
+
+def forgot_password_view(request):
+    """GET: shows the 'enter your email' form.
+    POST: if that email belongs to an account, emails a one-time reset
+    link (valid once, expires after Django's default password-reset
+    timeout). Always shows the same confirmation either way, so the page
+    never reveals whether a given email is registered."""
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+
+    sent = False
+    if request.method == 'POST':
+        email = (request.POST.get('email') or '').strip()
+        user = User.objects.filter(email__iexact=email).first() if email else None
+        if user is not None:
+            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            reset_link = request.build_absolute_uri(
+                reverse('reset_password', kwargs={'uidb64': uidb64, 'token': token})
+            )
+            _send_email(
+                user,
+                'Reset your Habit Tracker password',
+                f"Hi {user.get_full_name() or user.username},\n\n"
+                "Click the link below to choose a new password. It works once "
+                "and expires soon:\n\n"
+                f"{reset_link}\n\n"
+                "If you didn't request this, you can safely ignore this email.",
+            )
+        sent = True
+
+    return render(request, 'habits/forgot-password.html', {'sent': sent})
+
+
+def reset_password_view(request, uidb64, token):
+    """The link from the reset email lands here. Validates the uid/token
+    pair (same mechanism Django's own password-reset uses), then lets the
+    user set a new password."""
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    valid_link = user is not None and default_token_generator.check_token(user, token)
+    if not valid_link:
+        # Shows in the runserver terminal so a bad link can be diagnosed.
+        logging.getLogger(__name__).warning(
+            'Password reset link rejected: uidb64=%r token=%r (token length %d, user found: %s)',
+            uidb64, token, len(token), user is not None,
+        )
+
+    error = None
+    done = False
+    if valid_link and request.method == 'POST':
+        password1 = request.POST.get('password1', '')
+        password2 = request.POST.get('password2', '')
+        if not password1 or password1 != password2:
+            error = "Passwords don't match"
+        else:
+            try:
+                validate_password(password1, user=user)
+            except ValidationError as exc:
+                error = ' '.join(exc.messages)
+        if not error:
+            user.set_password(password1)
+            user.save(update_fields=['password'])
+            # Receiving the reset email proves the user owns this address.
+            profile = _get_or_create_profile(user)
+            if not profile.email_verified:
+                profile.email_verified = True
+                profile.save(update_fields=['email_verified'])
+            done = True
+
+    return render(request, 'habits/reset-password.html', {
+        'valid_link': valid_link,
+        'error': error,
+        'done': done,
+    })
 
 
 @login_required
@@ -216,6 +428,7 @@ def dashboard(request):
     habits = Habit.objects.filter(user=user)
 
     dashboard_data = {
+        'user': _serialize_account(user, profile),
         'user': {
             'name': user.get_full_name() or user.username,
             'email': user.email,
@@ -304,6 +517,78 @@ def habit_delete(request, habit_id):
 @login_required
 @require_POST
 def update_account(request):
+    """POST /api/account/update/ — multipart/form-data with any of:
+    name, gender, age, country, bio, photo (image file), remove_photo ('1').
+    Sent as FormData (not JSON) so it can carry the optional photo file.
+    Every field is optional; only the ones present in the request are
+    changed, so the Settings form can save just what the user touched."""
+    user = request.user
+    profile = _get_or_create_profile(user)
+
+    if 'name' in request.POST:
+        full_name = (request.POST.get('name') or '').strip()
+        if full_name:
+            parts = full_name.split(' ', 1)
+            user.first_name = parts[0]
+            user.last_name = parts[1] if len(parts) > 1 else ''
+            user.save(update_fields=['first_name', 'last_name'])
+
+    if 'gender' in request.POST:
+        gender = request.POST.get('gender')
+        if gender in ('male', 'female', ''):
+            profile.gender = gender
+
+    if 'age' in request.POST:
+        age_raw = (request.POST.get('age') or '').strip()
+        if age_raw == '':
+            profile.age = None
+        elif age_raw.isdigit() and 0 < int(age_raw) < 130:
+            profile.age = int(age_raw)
+        else:
+            return JsonResponse({'error': 'Age must be a number between 1 and 129'}, status=400)
+
+    if 'country' in request.POST:
+        profile.country = (request.POST.get('country') or '').strip()
+
+    if 'bio' in request.POST:
+        profile.bio = (request.POST.get('bio') or '').strip()
+
+    if request.POST.get('remove_photo') == '1':
+        if profile.profile_picture:
+            profile.profile_picture.delete(save=False)
+            profile.profile_picture = None
+        profile.avatar_icon = ''
+
+    if 'avatar_icon' in request.POST:
+        avatar_icon = request.POST.get('avatar_icon')
+        valid_icons = {key for key, _ in UserProfile.AVATAR_ICON_CHOICES}
+        if avatar_icon == '':
+            profile.avatar_icon = ''
+        elif avatar_icon in valid_icons:
+            profile.avatar_icon = avatar_icon
+            # Picking a preset icon replaces any uploaded photo — only one
+            # of the two is shown at a time.
+            if profile.profile_picture:
+                profile.profile_picture.delete(save=False)
+                profile.profile_picture = None
+        else:
+            return JsonResponse({'error': 'Invalid avatar icon'}, status=400)
+
+    photo = request.FILES.get('photo')
+    if photo:
+        if not (photo.content_type or '').startswith('image/'):
+            return JsonResponse({'error': 'Please upload an image file'}, status=400)
+        if photo.size > settings.PROFILE_PICTURE_MAX_BYTES:
+            return JsonResponse({'error': 'Image is too large (max 5 MB)'}, status=400)
+        if profile.profile_picture:
+            profile.profile_picture.delete(save=False)
+        profile.profile_picture = photo
+        # An uploaded photo replaces any preset icon selection.
+        profile.avatar_icon = ''
+
+    profile.save()
+
+    return JsonResponse(_serialize_account(user, profile))
     """POST /api/account/update/ — body: {name, gender}"""
     try:
         payload = json.loads(request.body)

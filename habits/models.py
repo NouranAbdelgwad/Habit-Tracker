@@ -4,13 +4,31 @@ from django.utils import timezone
 
 
 class UserProfile(models.Model):
+    # Preset avatar icons bundled with the app (Settings → Account). Keep
+    # this list in sync with the files in
+    # habits/static/habits/img/avatars/<key>.png
+    AVATAR_ICON_CHOICES = [
+        ('avatar-1', 'Avatar 1'),
+        ('avatar-2', 'Avatar 2'),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     gender = models.CharField(max_length=10, blank=True, choices=[('male', 'Male'), ('female', 'Female')])
     age = models.IntegerField(null=True, blank=True)
     country = models.CharField(max_length=50, blank=True)
+    profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
+    avatar_icon = models.CharField(max_length=30, blank=True, choices=AVATAR_ICON_CHOICES)
+    bio = models.TextField(blank=True)
+    onboarded = models.BooleanField(default=False)
+    # True once the user proved they own the email (clicked the link we sent).
+    email_verified = models.BooleanField(default=False)
     # profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
     bio = models.TextField(blank=True)
     onboarded = models.BooleanField(default=False)
+    bio = models.TextField(blank=True)
+    onboarded = models.BooleanField(default=False)
+    # True once the user proved they own the email (clicked the link we sent).
+    email_verified = models.BooleanField(default=False)
 
     def __str__(self):
         return self.user.username
