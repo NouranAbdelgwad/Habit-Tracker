@@ -80,7 +80,7 @@ body { transition: background 0.25s ease, color 0.25s ease; }
 
 a { color: inherit; }
 
-button, input, select {
+button, input, select, textarea {
   font-family: inherit;
   font-size: inherit;
   color: inherit;
@@ -282,6 +282,13 @@ button, input, select {
   text-align: center;
   font-size: 1.6rem;
   margin: 0 0 24px;
+}
+.auth-help {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  text-align: center;
+  margin: -10px 0 24px;
+  line-height: 1.5;
 }
 .field {
   margin-bottom: 16px;
@@ -498,7 +505,9 @@ button, input, select {
   display: flex; align-items: center; justify-content: center;
   font-weight: 700;
   flex-shrink: 0;
+  overflow: hidden;
 }
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .view-account-btn {
   width: 100%;
   height: 42px;
@@ -824,6 +833,8 @@ button, input, select {
 .modal-card {
   width: 100%;
   max-width: 460px;
+  max-height: 88vh;
+  overflow-y: auto;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -858,7 +869,18 @@ button, input, select {
   padding: 0 12px;
   font-weight: 600;
 }
-.modal-field input::placeholder { color: var(--text-faint); font-weight: 400; }
+.modal-field textarea {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text);
+  resize: vertical;
+}
+.modal-field input::placeholder,
+.modal-field textarea::placeholder { color: var(--text-faint); font-weight: 400; }
 .modal-field select option {
   color: #14170f;
   background: #ffffff;
@@ -894,6 +916,75 @@ button, input, select {
 .settings-row:last-of-type { border-bottom: none; }
 .settings-row .label { font-weight: 600; }
 .settings-row .sub { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
+
+/* ---------------------------------------------------------------------
+   Account section (lives inside the Settings modal — photo + profile
+   fields: name, gender, age, country, bio)
+   ------------------------------------------------------------------- */
+.account-section {
+  padding: 16px 4px 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.account-photo-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.account-avatar {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
+  border: 2px solid var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.account-avatar img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.account-photo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.account-photo-actions .btn { height: 38px; padding: 0 16px; }
+.account-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin: -6px 0 14px;
+}
+.avatar-icon-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 18px;
+}
+.avatar-icon-option {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
+.avatar-icon-option img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.avatar-icon-option.selected { border-color: var(--accent); }
+.avatar-attribution {
+  width: 100%;
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  margin: 0;
+}
+.avatar-attribution a { color: inherit; text-decoration: underline; }
 
 /* ---------------------------------------------------------------------
    Chat panel — slides up over the content area ONLY (day-grid + habit

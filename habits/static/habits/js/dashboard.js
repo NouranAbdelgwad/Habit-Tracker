@@ -1,28 +1,34 @@
 /* =========================================================================
    dashboard.js — dashboard screen logic
+   -------------------------------------------------------------------------
+   Initial state comes from the server via the "dashboard-data" json_script
+   block dashboard.html renders. Every mutation (check-in, add/edit/delete
+   habit, account update, period switch, chat) goes through the /api/
+   endpoints in habits/views.py using the apiFetch() helper from main.js.
    ========================================================================= */
 
-let currentPeriod = 'week'; // 'week' | 'month' | 'year'
+let dashboardData = null;
+let habitsState = [];
+let currentGrid = null;
+let currentPeriod = 'week';
 let editingHabitId = null;
 let selectedHabitIcon = '⭐';
 
 document.addEventListener('DOMContentLoaded', () => {
-  const user = requireAuth();
-  if (!user) return;
-  if (!user.onboarded) {
-    window.location.href = '/choose-habit/';
-    return;
-  }
+  dashboardData = JSON.parse(document.getElementById('dashboard-data').textContent);
+  habitsState = dashboardData.habits || [];
+  currentGrid = dashboardData.grid || { period: 'week', label: 'This Week', cells: [] };
+  currentPeriod = currentGrid.period || 'week';
 
-  renderUserBits(user);
+  renderUserBits(dashboardData.user);
   renderPeriodDropdown();
   renderDayGrid();
   renderHabits();
   initSidebar();
   initPeriodDropdown();
-  initAccountModal();
   initHabitModal();
   initSettingsModal();
+  initAccountSection();
   initThemeControls();
 
   document.addEventListener('themechange', () => {
@@ -35,7 +41,34 @@ document.addEventListener('DOMContentLoaded', () => {
    ------------------------------------------------------------------- */
 function renderUserBits(user) {
   document.querySelectorAll('.js-user-name').forEach(el => el.textContent = user.name);
-  document.querySelectorAll('.js-user-initial').forEach(el => el.textContent = (user.name[0] || '?').toUpperCase());
+  document.querySelectorAll('.js-user-initial').forEach(el => el.textContent = (user.initial || '?').toUpperCase());
+  // Every element carrying .js-user-avatar (sidebar) plus the Settings preview
+  // is rendered with the same logic: uploaded photo > chosen icon > initial.
+  document.querySelectorAll('.js-user-avatar').forEach(el => renderAvatar(el, user));
+  const removeBtn = document.getElementById('accountPhotoRemoveBtn');
+  if (removeBtn) removeBtn.style.display = user.photo_url ? 'inline-flex' : 'none';
+}
+
+/* Fills an avatar element with the user's photo/icon (photo_url), or falls
+   back to their initial when there isn't one. Works for any avatar element. */
+function renderAvatar(avatarEl, user) {
+  if (!avatarEl) return;
+  if (user.photo_url) {
+    let img = avatarEl.querySelector('img');
+    if (!img) {
+      avatarEl.innerHTML = '';
+      img = document.createElement('img');
+      img.alt = 'Profile photo';
+      avatarEl.appendChild(img);
+    }
+    img.src = user.photo_url;
+  } else {
+    avatarEl.innerHTML = '';
+    const span = document.createElement('span');
+    span.className = 'js-user-initial';
+    span.textContent = (user.initial || '?').toUpperCase();
+    avatarEl.appendChild(span);
+  }
 }
 
 /* ---------------------------------------------------------------------
@@ -54,23 +87,33 @@ function initSidebar() {
     historyList.classList.toggle('open');
     historyToggle.classList.toggle('open');
   });
-  renderHistoryList();
+  refreshHistoryList();
 
-  document.getElementById('viewAccountBtn').addEventListener('click', openAccountModal);
+  // Account fields now live inside the Settings modal, so "View Account"
+  // opens Settings and scrolls straight to the Account section.
+  document.getElementById('viewAccountBtn').addEventListener('click', () => {
+    document.getElementById('settingsModal').classList.add('open');
+    syncThemeSwitches();
+    document.querySelector('.account-section')?.scrollIntoView({ block: 'start' });
+  });
 }
 
-function renderHistoryList() {
+async function refreshHistoryList() {
   const historyList = document.getElementById('historyList');
-  const chats = getChats();
-  historyList.innerHTML = '';
-  chats.forEach(chat => {
-    const item = document.createElement('button');
-    item.className = 'history-item';
-    item.type = 'button';
-    item.textContent = chat.title;
-    item.addEventListener('click', () => openChatbot(chat.id));
-    historyList.appendChild(item);
-  });
+  try {
+    const data = await apiFetch('/api/chats/');
+    historyList.innerHTML = '';
+    (data.chats || []).forEach(chat => {
+      const item = document.createElement('button');
+      item.className = 'history-item';
+      item.type = 'button';
+      item.textContent = chat.title;
+      item.addEventListener('click', () => openChatbot(chat.id));
+      historyList.appendChild(item);
+    });
+  } catch (err) {
+    console.error('Failed to load chat history', err);
+  }
 }
 
 /* ---------------------------------------------------------------------
@@ -93,12 +136,12 @@ function initPeriodDropdown() {
   });
 
   menu.querySelectorAll('[data-period]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       currentPeriod = btn.getAttribute('data-period');
       renderPeriodDropdown();
-      renderDayGrid();
       menu.classList.remove('open');
       trigger.classList.remove('open');
+      await loadGrid(currentPeriod);
     });
   });
 
@@ -108,97 +151,59 @@ function initPeriodDropdown() {
   });
 }
 
+async function loadGrid(period) {
+  try {
+    currentGrid = await apiFetch(`/api/period-data/?period=${encodeURIComponent(period)}`);
+    renderDayGrid();
+  } catch (err) {
+    console.error('Failed to load period data', err);
+  }
+}
+
 /* ---------------------------------------------------------------------
-   Day grid (week / month / year)
+   Day grid (week / month / year) — rendered from server-provided cells
    ------------------------------------------------------------------- */
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function renderDayGrid() {
   const grid = document.getElementById('dayGrid');
   const dayLabelsRow = document.getElementById('dayLabelsRow');
-  const habits = getHabits();
   grid.innerHTML = '';
   dayLabelsRow.innerHTML = '';
-  grid.className = 'day-grid view-' + currentPeriod;
+  grid.className = 'day-grid view-' + currentGrid.period;
 
-  if (currentPeriod === 'week') {
-    dayLabelsRow.style.display = 'grid';
-    const today = startOfDay(new Date());
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
+  const todayIso = new Date().toISOString().slice(0, 10);
 
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(startOfWeek);
-      d.setDate(startOfWeek.getDate() + i);
-      const status = getDayStatus(d, habits);
-      grid.appendChild(makeSquare(status));
-    }
-
-    DAY_LABELS.forEach((label, i) => {
-      const el = document.createElement('span');
-      el.className = 'day-label';
-      if (i === today.getDay()) el.classList.add('active');
-      el.textContent = label;
-      dayLabelsRow.appendChild(el);
-    });
-
-  } else if (currentPeriod === 'month') {
-    dayLabelsRow.style.display = 'grid';
-    const now = new Date();
-    const total = daysInMonth(now.getFullYear(), now.getMonth());
-    for (let day = 1; day <= total; day++) {
-      const d = new Date(now.getFullYear(), now.getMonth(), day);
-      const status = getDayStatus(d, habits);
-      grid.appendChild(makeSquare(status));
-    }
-    const todayIdx = now.getDay();
-    DAY_LABELS.forEach((label, i) => {
-      const el = document.createElement('span');
-      el.className = 'day-label';
-      if (i === todayIdx) el.classList.add('active');
-      el.textContent = label;
-      dayLabelsRow.appendChild(el);
-    });
-
-  } else if (currentPeriod === 'year') {
+  if (currentGrid.period === 'year') {
     dayLabelsRow.style.display = 'none';
-    const now = new Date();
-    for (let m = 0; m <= 11; m++) {
-      const status = getMonthStatus(now.getFullYear(), m, habits);
+    const thisMonth = todayIso.slice(0, 7);
+    currentGrid.cells.forEach(cell => {
       const wrap = document.createElement('div');
       wrap.className = 'month-square-wrap';
-      const sq = makeSquare(status);
+      const sq = makeSquare(cell.status);
       const label = document.createElement('span');
       label.className = 'month-square-label';
-      label.textContent = MONTH_LABELS[m];
-      if (m === now.getMonth()) label.classList.add('active');
+      label.textContent = cell.day_label;
+      if (cell.date.slice(0, 7) === thisMonth) label.classList.add('active');
       wrap.appendChild(sq);
       wrap.appendChild(label);
       grid.appendChild(wrap);
-    }
-  }
-}
+    });
+  } else {
+    dayLabelsRow.style.display = 'grid';
+    currentGrid.cells.forEach(cell => {
+      grid.appendChild(makeSquare(cell.status));
+    });
 
-/* Aggregate status for a whole month, used by the Year view. Only counts
-   days that have already ended within that month; a month with no ended
-   days yet (fully in the future) is neutral. */
-function getMonthStatus(year, monthIndex, habits) {
-  const total = daysInMonth(year, monthIndex);
-  let veryWell = 0, good = 0, bad = 0, ended = 0;
-  for (let day = 1; day <= total; day++) {
-    const d = new Date(year, monthIndex, day);
-    const status = getDayStatus(d, habits);
-    if (status === 'neutral') continue;
-    ended++;
-    if (status === 'very-well') veryWell++;
-    else if (status === 'good') good++;
-    else if (status === 'bad') bad++;
+    const todayWeekday = new Date().getDay();
+    DAY_LABELS.forEach((label, i) => {
+      const el = document.createElement('span');
+      el.className = 'day-label';
+      if (i === todayWeekday) el.classList.add('active');
+      el.textContent = label;
+      dayLabelsRow.appendChild(el);
+    });
   }
-  if (ended === 0) return 'neutral';
-  if (veryWell === ended) return 'very-well';
-  if (bad === ended) return 'bad';
-  return 'good';
 }
 
 function makeSquare(status) {
@@ -212,10 +217,8 @@ function makeSquare(status) {
    ------------------------------------------------------------------- */
 function renderHabits() {
   const row = document.getElementById('habitsRow');
-  const habits = getHabits();
   row.innerHTML = '';
-
-  habits.forEach(habit => row.appendChild(buildHabitCard(habit)));
+  habitsState.forEach(habit => row.appendChild(buildHabitCard(habit)));
 
   const addCard = document.createElement('button');
   addCard.className = 'habit-card add-habit-card';
@@ -226,9 +229,7 @@ function renderHabits() {
 }
 
 function buildHabitCard(habit) {
-  const todayStr = formatDate(new Date());
-  const checked = !!habit.checkins[todayStr];
-  const streak = calcStreak(habit);
+  const checked = !!habit.checked_in_today;
 
   const card = document.createElement('div');
   card.className = 'habit-card';
@@ -239,60 +240,121 @@ function buildHabitCard(habit) {
     </button>
     <div class="habit-icon">${habit.icon || '⭐'}</div>
     <div class="habit-name">${escapeHtml(habit.name)}</div>
-    <div class="habit-streak">${streak} day streak</div>
+    <div class="habit-streak">${habit.current_streak} day streak</div>
   `;
 
   card.querySelector('.edit-btn').addEventListener('click', () => openHabitModal(habit.id));
 
-  card.querySelector('.checkin-toggle').addEventListener('click', () => {
-    // Toggle happens instantly in the mock data, then we re-render the
-    // single card + the day grid right away — no waiting for "day end".
-    toggleTodayCheckin(habit.id);
-    renderHabits();
-    renderDayGrid();
+  card.querySelector('.checkin-toggle').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const result = await apiFetch(`/api/habits/toggle/${habit.id}/`, { method: 'POST', body: '{}' });
+      habit.checked_in_today = result.checked_in_today;
+      habit.current_streak = result.current_streak;
+      habit.longest_streak = result.longest_streak;
+      renderHabits();
+      await loadGrid(currentPeriod); // today's status may have changed
+    } catch (err) {
+      console.error('Failed to toggle check-in', err);
+      btn.disabled = false;
+    }
   });
 
   return card;
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
 /* ---------------------------------------------------------------------
-   Account modal
+   Account section (inside the Settings modal) — name, email, gender,
+   age, country, bio, and the profile photo (upload / take a photo /
+   remove). Every save goes through /api/account/update/ using FormData
+   so the optional photo file can ride along with the text fields.
    ------------------------------------------------------------------- */
-function initAccountModal() {
-  document.getElementById('accountCloseBtn').addEventListener('click', closeAccountModal);
-  document.getElementById('accountCancelBtn').addEventListener('click', closeAccountModal);
-  document.getElementById('accountForm').addEventListener('submit', (e) => {
+function initAccountSection() {
+  populateAccountFields(dashboardData.user);
+
+  const photoInput = document.getElementById('accountPhotoInput');
+  document.getElementById('accountPhotoBtn').addEventListener('click', () => photoInput.click());
+
+  // "Pick an icon" toggles the icon row open/closed, same interaction
+  // level as the "Change photo" button next to it.
+  document.getElementById('accountIconPickerBtn').addEventListener('click', () => {
+    const picker = document.getElementById('avatarIconPicker');
+    picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+  });
+
+  // Selecting a file here (from either "Take Photo" or "Photo Library" on
+  // mobile — the plain file input with no "capture" attribute lets the OS
+  // offer both) uploads it right away, independent of the Save button.
+  photoInput.addEventListener('change', async () => {
+    const file = photoInput.files[0];
+    if (!file) return;
+    await saveAccountFields(new FormData(), file);
+    photoInput.value = '';
+  });
+
+  document.getElementById('accountPhotoRemoveBtn').addEventListener('click', async () => {
+    const fd = new FormData();
+    fd.append('remove_photo', '1');
+    await saveAccountFields(fd);
+  });
+
+  document.querySelectorAll('.avatar-icon-option').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const fd = new FormData();
+      fd.append('avatar_icon', btn.dataset.icon);
+      await saveAccountFields(fd);
+    });
+  });
+
+  document.getElementById('accountForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const user = getCurrentUser();
-    user.name = document.getElementById('accountName').value.trim() || user.name;
-    user.gender = document.getElementById('accountGender').value;
-    setCurrentUser(user);
-
-    // keep the users table in sync too
-    const users = getUsers();
-    const idx = users.findIndex(u => u.email === user.email);
-    if (idx > -1) { users[idx] = user; saveUsers(users); }
-
-    renderUserBits(user);
-    closeAccountModal();
+    const fd = new FormData();
+    fd.append('name', document.getElementById('accountName').value.trim());
+    fd.append('gender', document.getElementById('accountGender').value);
+    fd.append('age', document.getElementById('accountAge').value.trim());
+    fd.append('country', document.getElementById('accountCountry').value.trim());
+    fd.append('bio', document.getElementById('accountBio').value.trim());
+    const ok = await saveAccountFields(fd);
+    if (ok) {
+      document.getElementById('settingsModal').classList.remove('open');
+    }
   });
 }
 
-function openAccountModal() {
-  const user = getCurrentUser();
-  document.getElementById('accountName').value = user.name;
-  document.getElementById('accountEmail').placeholder = user.email;
+function populateAccountFields(user) {
+  document.getElementById('accountName').value = user.name || '';
+  document.getElementById('accountEmail').placeholder = user.email || '';
   document.getElementById('accountGender').value = user.gender || '';
-  document.getElementById('accountModal').classList.add('open');
+  document.getElementById('accountAge').value = user.age != null ? user.age : '';
+  document.getElementById('accountCountry').value = user.country || '';
+  document.getElementById('accountBio').value = user.bio || '';
+  document.querySelectorAll('.avatar-icon-option').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.icon === user.avatar_icon);
+  });
 }
-function closeAccountModal() {
-  document.getElementById('accountModal').classList.remove('open');
+
+async function saveAccountFields(formData, photoFile) {
+  if (photoFile) formData.append('photo', photoFile);
+  const errorEl = document.getElementById('accountError');
+  errorEl.style.display = 'none';
+  try {
+    const result = await apiFetch('/api/account/update/', { method: 'POST', body: formData });
+    dashboardData.user = result;
+    populateAccountFields(result);
+    renderUserBits(result);
+    return true;
+  } catch (err) {
+    console.error('Failed to update account', err);
+    let message = 'Could not save your changes. Please try again.';
+    try {
+      const parsed = JSON.parse(err.message.slice(err.message.indexOf('{')));
+      if (parsed && parsed.error) message = parsed.error;
+    } catch (parseErr) { /* fall back to the generic message */ }
+    errorEl.textContent = message;
+    errorEl.style.display = 'block';
+    return false;
+  }
 }
 
 /* ---------------------------------------------------------------------
@@ -303,23 +365,29 @@ function initHabitModal() {
   document.getElementById('habitCloseBtn').addEventListener('click', closeHabitModal);
   renderHabitIconPicker();
 
-  document.getElementById('habitForm').addEventListener('submit', (e) => {
+  document.getElementById('habitForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('habitNameInput').value.trim();
     if (!name) return;
-    const habits = getHabits();
 
-    if (editingHabitId) {
-      const h = habits.find(h => h.id === editingHabitId);
-      h.name = name;
-      h.icon = selectedHabitIcon;
-      saveHabits(habits);
-    } else {
-      addHabit(name, selectedHabitIcon);
+    const payload = { name, icon: selectedHabitIcon };
+    if (editingHabitId) payload.id = editingHabitId;
+
+    try {
+      const result = await apiFetch('/api/habits/save/', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      const saved = result.habit;
+      const idx = habitsState.findIndex(h => h.id === saved.id);
+      if (idx > -1) habitsState[idx] = saved; else habitsState.push(saved);
+      renderHabits();
+      await loadGrid(currentPeriod);
+      closeHabitModal();
+    } catch (err) {
+      console.error('Failed to save habit', err);
+      alert('Could not save this habit. Please try again.');
     }
-    renderHabits();
-    renderDayGrid();
-    closeHabitModal();
   });
 
   document.getElementById('habitDeleteBtn').addEventListener('click', () => {
@@ -328,13 +396,18 @@ function initHabitModal() {
   document.getElementById('deleteCancelBtn').addEventListener('click', () => {
     document.getElementById('deleteConfirm').classList.remove('open');
   });
-  document.getElementById('deleteConfirmBtn').addEventListener('click', () => {
-    const habits = getHabits().filter(h => h.id !== editingHabitId);
-    saveHabits(habits);
-    document.getElementById('deleteConfirm').classList.remove('open');
-    closeHabitModal();
-    renderHabits();
-    renderDayGrid();
+  document.getElementById('deleteConfirmBtn').addEventListener('click', async () => {
+    try {
+      await apiFetch(`/api/habits/delete/${editingHabitId}/`, { method: 'POST', body: '{}' });
+      habitsState = habitsState.filter(h => h.id !== editingHabitId);
+      document.getElementById('deleteConfirm').classList.remove('open');
+      closeHabitModal();
+      renderHabits();
+      await loadGrid(currentPeriod);
+    } catch (err) {
+      console.error('Failed to delete habit', err);
+      alert('Could not delete this habit. Please try again.');
+    }
   });
 }
 
@@ -372,7 +445,7 @@ function openHabitModal(habitId) {
   document.getElementById('deleteConfirm').classList.remove('open');
 
   if (isEdit) {
-    const habit = getHabits().find(h => h.id === habitId);
+    const habit = habitsState.find(h => h.id === habitId);
     document.getElementById('habitNameInput').value = habit.name;
     selectedHabitIcon = habit.icon || '⭐';
   } else {
@@ -398,7 +471,9 @@ function initSettingsModal() {
   document.getElementById('settingsCloseBtn').addEventListener('click', () => {
     document.getElementById('settingsModal').classList.remove('open');
   });
-  document.getElementById('settingsLogoutBtn').addEventListener('click', logout);
+  document.getElementById('settingsLogoutBtn').addEventListener('click', () => {
+    window.location.href = '/logout/';
+  });
 
   const notifToggle = document.getElementById('notifToggle');
   notifToggle.addEventListener('change', () => {

@@ -3,24 +3,16 @@
    -------------------------------------------------------------------------
    Shown once, right after signup (before the dashboard). The person can
    tap any number of preset habits, add their own via "Another" (name +
-   emoji), then hit Continue to create them all and land on the
-   dashboard — or Skip to go straight there with nothing set up yet.
+   emoji), then hit Continue to actually create them all in the database
+   and land on the dashboard — or Skip to go straight there with nothing
+   set up yet. Both buttons mark the account as onboarded so this screen
+   never shows again.
    ========================================================================= */
 
-let chosenHabits = []; // { name, icon, isPreset }
+let chosenHabits = []; // { name, icon }
 let customIcon = '⭐';
 
 document.addEventListener('DOMContentLoaded', () => {
-  const user = requireAuth();
-  if (!user) return;
-
-  // Already done this before (e.g. came back via browser history) ->
-  // no need to see it again.
-  if (user.onboarded) {
-    window.location.href = '/dashboard/';
-    return;
-  }
-
   renderPresetGrid();
   renderCustomIconPicker();
   renderChips();
@@ -148,22 +140,33 @@ function removeChosen(index) {
 }
 
 /* ---------------------------------------------------------------------
-   Continue / Skip
+   Continue / Skip — persist to the database, then go to the dashboard
    ------------------------------------------------------------------- */
 function initActions() {
   document.getElementById('continueBtn').addEventListener('click', finishOnboarding);
   document.getElementById('skipBtn').addEventListener('click', finishOnboarding);
 }
 
-function finishOnboarding() {
-  const user = getCurrentUser();
-  chosenHabits.forEach(h => addHabit(h.name, h.icon));
-  markOnboarded(user);
-  window.location.href = '/dashboard/';
-}
+async function finishOnboarding() {
+  const continueBtn = document.getElementById('continueBtn');
+  const skipBtn = document.getElementById('skipBtn');
+  continueBtn.disabled = true;
+  skipBtn.disabled = true;
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  try {
+    // Create each chosen habit in the database (sequential to keep it simple).
+    for (const h of chosenHabits) {
+      await apiFetch('/api/habits/save/', {
+        method: 'POST',
+        body: JSON.stringify({ name: h.name, icon: h.icon, frequency: 'daily' }),
+      });
+    }
+    await apiFetch('/api/onboarding/complete/', { method: 'POST' });
+    window.location.href = '/dashboard/';
+  } catch (err) {
+    console.error(err);
+    alert('Something went wrong saving your habits. Please try again.');
+    continueBtn.disabled = false;
+    skipBtn.disabled = false;
+  }
 }

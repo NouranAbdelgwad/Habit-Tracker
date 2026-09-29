@@ -5,7 +5,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Create account — Habit Tracker</title>
+    <title>Confirm email — Habit Tracker</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="{% static 'habits/css/style.css' %}" />
@@ -23,45 +23,22 @@
 
     <div class="auth-center">
       <div class="auth-card">
-        <h1>Create account</h1>
-        <form id="signupForm" method="post" novalidate>
-          {% csrf_token %}
-
-          {% if form.username.errors %}
-            <label class="error-label visible">{{ form.username.errors|first }}</label>
+        {% if state == 'sent' %}
+          <h1>Check your email</h1>
+          <p class="auth-help">We sent a confirmation link{% if email %} to <strong>{{ email }}</strong>{% endif %}. Open it to activate your account, then log in.</p>
+          <a href="{% url 'login' %}" class="btn btn-solid-accent btn-submit">Go to log in</a>
+          {% if email %}
+          <form method="post" action="{% url 'resend_verification' %}">
+            {% csrf_token %}
+            <input type="hidden" name="email" value="{{ email }}" />
+            <div class="auth-links"><button type="submit" class="btn" style="border:none;background:none;color:var(--text-muted);">Didn't get it? Send again</button></div>
+          </form>
           {% endif %}
-          <div class="field">
-            <input type="text" name="username" id="signupUsername" placeholder="Enter Your Username"
-                   value="{{ form.username.value|default:'' }}" required />
-          </div>
-
-          {% if form.email.errors %}
-            <label class="error-label visible">{{ form.email.errors|first }}</label>
-          {% endif %}
-          <div class="field">
-            <input type="email" name="email" id="signupEmail" placeholder="Email@gmail.com"
-                   value="{{ form.email.value|default:'' }}" required />
-          </div>
-
-          {% if form.password1.errors %}
-            <label class="error-label visible">{{ form.password1.errors|first }}</label>
-          {% endif %}
-          <div class="field">
-            <input type="password" name="password1" id="signupPassword" placeholder="Password" required />
-          </div>
-
-          {% if form.password2.errors %}
-            <label class="error-label visible">{{ form.password2.errors|first }}</label>
-          {% endif %}
-          <div class="field">
-            <input type="password" name="password2" id="signupConfirm" placeholder="Confirm password" required />
-          </div>
-
-          <button type="submit" class="btn btn-solid-accent btn-submit">Register</button>
-          <div class="auth-links">
-            <span>Already have an account?</span><a href="{% url 'login' %}" class="accent">Login</a>
-          </div>
-        </form>
+        {% else %}
+          <h1>Link not valid</h1>
+          <p class="auth-help">This confirmation link is invalid or has expired. Log in to request a new one.</p>
+          <a href="{% url 'login' %}" class="btn btn-solid-accent btn-submit">Go to log in</a>
+        {% endif %}
       </div>
     </div>
   </body>

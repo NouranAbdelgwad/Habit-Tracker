@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -37,7 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'habits'
+    'habits.apps.HabitsConfig',
 ]
 
 MIDDLEWARE = [
@@ -117,12 +118,55 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# User-uploaded files (profile pictures, etc.)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Max size for an uploaded profile picture (5 MB)
+PROFILE_PICTURE_MAX_BYTES = 5 * 1024 * 1024
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Auth redirects
+# https://docs.djangoproject.com/en/6.1/ref/settings/#login-url
+
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'index'
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
+#
+# Real delivery is configured through a `.env` file next to manage.py (see
+# .env.example). If EMAIL_HOST_USER isn't set, emails are printed to the
+# terminal instead (handy for development).
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+def _load_dotenv(path):
+    """Tiny .env reader (KEY=VALUE per line) so no extra package is needed."""
+    if not path.exists():
+        return
+    for line in path.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+_load_dotenv(BASE_DIR / '.env')
+
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+
+if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+    EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+    EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+    EMAIL_TIMEOUT = 15
+    DEFAULT_FROM_EMAIL = f'Habit Tracker <{EMAIL_HOST_USER}>'
+else:
+    EMAIL_BACKEND = 'habits.console_email.EmailBackend'
+    DEFAULT_FROM_EMAIL = 'Habit Tracker <no-reply@habittracker.local>'
