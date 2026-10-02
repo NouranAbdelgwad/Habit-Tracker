@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import json
 from datetime import date, timedelta
 from types import SimpleNamespace
@@ -310,3 +311,8 @@ class ChatEndpointTests(TestCase):
         self.assertEqual(listing['chats'], [{'id': chat_id, 'title': 'hello there'}])
         detail = self.client.get(f'/api/chats/{chat_id}/').json()
         self.assertEqual([m['sender'] for m in detail['messages']], ['user', 'bot'])
+=======
+from django.test import TestCase
+
+# Create your tests here.
+>>>>>>> origin/main

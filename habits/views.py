@@ -27,10 +27,13 @@ from django.shortcuts import redirect, render, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 
+<<<<<<< HEAD
 from django.core.cache import cache
 from django.db import transaction
 
 from . import chatbot
+=======
+>>>>>>> origin/main
 from .forms import SignupForm
 from .models import ChatMessage, ChatSession, Habit, HabitLog, UserProfile
 
@@ -639,6 +642,7 @@ def chat_detail(request, chat_id):
     })
 
 
+<<<<<<< HEAD
 CHAT_MAX_MESSAGE_CHARS = 2000
 CHAT_RATE_LIMIT = 15        # messages per user ...
 CHAT_RATE_WINDOW = 60       # ... per this many seconds
@@ -656,10 +660,13 @@ def _chat_rate_limited(user_id):
         return False
 
 
+=======
+>>>>>>> origin/main
 @login_required
 @require_POST
 def chatbot_message(request):
     """POST /api/chat/ — body: {message, chat_id?}
+<<<<<<< HEAD
     Asks the AI coach (habits/chatbot.py) for a reply using the user's real
     habit data and this session's history. The exchange is saved only when a
     reply was produced, so a failed call leaves no half-finished chat behind
@@ -709,3 +716,29 @@ def chatbot_message(request):
         ChatMessage.objects.create(session=session, sender='bot', text=reply)
 
     return JsonResponse({'chat_id': session.id, 'title': session.title, 'reply': reply})
+=======
+    Creates (or reuses) a ChatSession, stores the user's message, generates
+    a reply, stores that too, and returns both plus the session id/title.
+    Replace the placeholder reply below with a real AI call when ready."""
+    try:
+        payload = json.loads(request.body)
+    except json.JSONDecodeError:
+        return HttpResponseBadRequest('Invalid JSON')
+
+    message = (payload.get('message') or '').strip()
+    if not message:
+        return HttpResponseBadRequest('Empty message')
+
+    chat_id = payload.get('chat_id')
+    if chat_id:
+        session = get_object_or_404(ChatSession, id=chat_id, user=request.user)
+    else:
+        session = ChatSession.objects.create(user=request.user, title=message[:40])
+
+    ChatMessage.objects.create(session=session, sender='user', text=message)
+
+    reply = "Got it! (This is a placeholder response — AI backend not connected yet.)"
+    ChatMessage.objects.create(session=session, sender='bot', text=reply)
+
+    return JsonResponse({'chat_id': session.id, 'title': session.title, 'reply': reply})
+>>>>>>> origin/main

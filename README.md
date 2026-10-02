@@ -45,6 +45,7 @@ python manage.py runserver
 
 Visit `http://127.0.0.1:8000/`.
 
+<<<<<<< HEAD
 ## AI habit coach (chatbot)
 
 The chat panel talks to Gemini through `habits/chatbot.py`.
@@ -72,6 +73,8 @@ Run the tests (they use a fake Gemini, no network needed):
 python manage.py test habits
 ```
 
+=======
+>>>>>>> origin/main
 ## What changed / what was actually broken
 
 - **Signup never saved anything.** `auth.js` was a mock layer that stored
@@ -105,6 +108,11 @@ send/list/detail, and logout — all passing.
 
 ## Known simplifications (not bugs, just left simple on purpose)
 
+<<<<<<< HEAD
+=======
+- The chatbot's reply is a hardcoded placeholder string
+  (`views.chatbot_message`) — swap in a real API call whenever you're ready.
+>>>>>>> origin/main
 - Password rules use Django's default validators (min length, not too
   common/numeric, not too similar to your username/email) — these are
   stricter than the original "Email or Password are wrong" placeholder

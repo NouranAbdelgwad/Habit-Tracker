@@ -1,4 +1,7 @@
 Django==6.1.1
 Pillow>=10.0
+<<<<<<< HEAD
 langchain-core>=1.0
 langchain-google-genai>=4.0
+=======
+>>>>>>> origin/main
