@@ -144,15 +144,35 @@ LOGOUT_REDIRECT_URL = 'index'
 # terminal instead (handy for development).
 
 def _load_dotenv(path):
+<<<<<<< HEAD
+    """Tiny .env reader (KEY=VALUE per line) so no extra package is needed.
+
+    * utf-8-sig: Windows editors (Notepad, PowerShell redirects) often add a
+      BOM, which would otherwise glue itself onto the first variable's name.
+    * A variable that is missing OR empty in the real environment is filled
+      from .env; a non-empty real environment variable still wins.
+    """
+    if not path.exists():
+        return
+    for line in path.read_text(encoding='utf-8-sig').splitlines():
+=======
     """Tiny .env reader (KEY=VALUE per line) so no extra package is needed."""
     if not path.exists():
         return
     for line in path.read_text(encoding='utf-8').splitlines():
+>>>>>>> origin/main
         line = line.strip()
         if not line or line.startswith('#') or '=' not in line:
             continue
         key, value = line.split('=', 1)
+<<<<<<< HEAD
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and not os.environ.get(key):
+            os.environ[key] = value
+=======
         os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+>>>>>>> origin/main
 
 
 _load_dotenv(BASE_DIR / '.env')

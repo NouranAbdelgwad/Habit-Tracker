@@ -45,6 +45,36 @@ python manage.py runserver
 
 Visit `http://127.0.0.1:8000/`.
 
+<<<<<<< HEAD
+## AI habit coach (chatbot)
+
+The chat panel talks to Gemini through `habits/chatbot.py`.
+
+1. `pip install -r requirements.txt` (adds `langchain-google-genai`).
+2. Put your key in `.env` (copy `.env.example`): `GOOGLE_API_KEY=...`
+   Optional: `GEMINI_MODEL=...` (default `gemini-3.5-flash-lite`).
+   Use a Google AI Studio key (aistudio.google.com/api-keys). It goes to the
+   regular Gemini API whatever its prefix is. Vertex AI is opt-in only: set
+   `GOOGLE_GENAI_USE_VERTEXAI=true` if you really want it.
+3. Run the server as usual. If the key is missing the chat shows a clear
+   "coach isn't set up yet" message instead of crashing.
+
+How it works: for every message, the view sends Gemini (a) the coach rules,
+(b) a snapshot of **that user's** habits and the last 28 days of check-ins
+(streaks, missed days, misses by weekday), and (c) the last 20 messages of
+**that chat session** from the database. Nothing is shared between users or
+chats. If Gemini fails, the user gets a friendly error, nothing half-saved is
+left in the database, and they can just resend. Limits: 2000 characters per
+message, 15 messages per minute per user.
+
+Run the tests (they use a fake Gemini, no network needed):
+
+```powershell
+python manage.py test habits
+```
+
+=======
+>>>>>>> origin/main
 ## What changed / what was actually broken
 
 - **Signup never saved anything.** `auth.js` was a mock layer that stored
@@ -78,8 +108,11 @@ send/list/detail, and logout — all passing.
 
 ## Known simplifications (not bugs, just left simple on purpose)
 
+<<<<<<< HEAD
+=======
 - The chatbot's reply is a hardcoded placeholder string
   (`views.chatbot_message`) — swap in a real API call whenever you're ready.
+>>>>>>> origin/main
 - Password rules use Django's default validators (min length, not too
   common/numeric, not too similar to your username/email) — these are
   stricter than the original "Email or Password are wrong" placeholder

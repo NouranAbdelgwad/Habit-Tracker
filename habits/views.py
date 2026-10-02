@@ -27,6 +27,13 @@ from django.shortcuts import redirect, render, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 
+<<<<<<< HEAD
+from django.core.cache import cache
+from django.db import transaction
+
+from . import chatbot
+=======
+>>>>>>> origin/main
 from .forms import SignupForm
 from .models import ChatMessage, ChatSession, Habit, HabitLog, UserProfile
 
@@ -635,10 +642,81 @@ def chat_detail(request, chat_id):
     })
 
 
+<<<<<<< HEAD
+CHAT_MAX_MESSAGE_CHARS = 2000
+CHAT_RATE_LIMIT = 15        # messages per user ...
+CHAT_RATE_WINDOW = 60       # ... per this many seconds
+
+
+def _chat_rate_limited(user_id):
+    """True if this user already sent CHAT_RATE_LIMIT messages in the window."""
+    key = f'chat-rate:{user_id}'
+    if cache.add(key, 1, CHAT_RATE_WINDOW):
+        return False
+    try:
+        return cache.incr(key) > CHAT_RATE_LIMIT
+    except ValueError:  # key expired between add() and incr()
+        cache.set(key, 1, CHAT_RATE_WINDOW)
+        return False
+
+
+=======
+>>>>>>> origin/main
 @login_required
 @require_POST
 def chatbot_message(request):
     """POST /api/chat/ — body: {message, chat_id?}
+<<<<<<< HEAD
+    Asks the AI coach (habits/chatbot.py) for a reply using the user's real
+    habit data and this session's history. The exchange is saved only when a
+    reply was produced, so a failed call leaves no half-finished chat behind
+    and the user can simply resend.
+    Success: {chat_id, title, reply}.  Failure: {error} with 400/404/429/503."""
+    try:
+        payload = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    if not isinstance(payload, dict):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    message = payload.get('message')
+    message = message.strip() if isinstance(message, str) else ''
+    if not message:
+        return JsonResponse({'error': 'Empty message'}, status=400)
+    if len(message) > CHAT_MAX_MESSAGE_CHARS:
+        return JsonResponse(
+            {'error': f'Message is too long (max {CHAT_MAX_MESSAGE_CHARS} characters).'},
+            status=400,
+        )
+
+    session = None
+    chat_id = payload.get('chat_id')
+    if chat_id not in (None, ''):
+        try:
+            chat_id = int(chat_id)
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'Invalid chat_id'}, status=400)
+        session = get_object_or_404(ChatSession, id=chat_id, user=request.user)
+
+    if _chat_rate_limited(request.user.id):
+        return JsonResponse(
+            {'error': 'You are sending messages too fast. Please wait a moment.'},
+            status=429,
+        )
+
+    try:
+        reply = chatbot.get_reply(request.user, message, session=session)
+    except chatbot.ChatbotError as exc:
+        return JsonResponse({'error': str(exc)}, status=503)
+
+    with transaction.atomic():
+        if session is None:
+            session = ChatSession.objects.create(user=request.user, title=message[:40])
+        ChatMessage.objects.create(session=session, sender='user', text=message)
+        ChatMessage.objects.create(session=session, sender='bot', text=reply)
+
+    return JsonResponse({'chat_id': session.id, 'title': session.title, 'reply': reply})
+=======
     Creates (or reuses) a ChatSession, stores the user's message, generates
     a reply, stores that too, and returns both plus the session id/title.
     Replace the placeholder reply below with a real AI call when ready."""
@@ -663,3 +741,4 @@ def chatbot_message(request):
     ChatMessage.objects.create(session=session, sender='bot', text=reply)
 
     return JsonResponse({'chat_id': session.id, 'title': session.title, 'reply': reply})
+>>>>>>> origin/main
