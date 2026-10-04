@@ -1,9 +1,9 @@
 venv/
+.venv/
 __pycache__/
 *.pyc
-db.sqlite3
 .env
-venv/
-*.pyc
-__pycache__/
 db.sqlite3
+# user uploads (keep the folder itself)
+media/*
+!media/.gitkeep
