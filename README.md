@@ -1,39 +1,71 @@
-# Habit Tracker — setup
+# 🫀 Habit Tracker
 
-## 1. Create and activate a virtual environment
+**Build habits that stick.** Check in once a day, watch your streak grow, and see your week, month, or year at a glance — no clutter, no noise, just the habits you actually keep.
+
+A full-stack Django project built for **IEEE Elevate — Software Engineering Track, Project 3**.
+
+---
+
+## ✨ Features
+
+**Core**
+- Secure sign-up and login (by username *or* email)
+- Create, edit, and delete habits with custom emoji icons
+- One-click daily check-ins with live streak counters (current + longest)
+- Color-coded progress heatmap — Week / Month / Year views
+- Guided onboarding flow (`Choose your habits`) right after signup
+
+**Beyond the brief**
+- 🤖 Built-in AI chatbot with persisted, per-user chat history
+- 🌗 Light / dark theme toggle, remembered per device
+- 👤 Live account settings (name, gender) — no page reload
+- 🔁 "Never-miss-twice" streak logic instead of all-or-nothing resets
+
+## 📸 Screenshots
+
+| Sign in | Create account |
+|---|---|
+| ![Login](docs/screenshots/login.png) | ![Signup](docs/screenshots/signup.png) |
+
+| Dashboard — daily check-ins & streaks | Weekly progress heatmap |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Heatmap](docs/screenshots/heatmap.png) |
+
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Python, Django 6.1 |
+| Database | SQLite (via Django ORM) |
+| Frontend | Django Templates, vanilla JavaScript (`fetch` API), hand-written CSS |
+| Auth | Django session-based auth, CSRF-protected |
+
+No frontend framework, no build step — just server-rendered HTML plus a handful of plain `.js` files.
+
+## 🚀 Getting Started
+
+### 1. Create and activate a virtual environment
 
 ```powershell
 py -3 -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
 
-Confirm it's the real python.org interpreter, not a MinGW/MSYS2 build — this
-matters because prebuilt wheels (Pillow, etc.) only exist for the standard
-build. If you ever see a `mingw_x86_64` tag in a pip build log, recreate the
-venv with the official Python install from python.org.
+> Make sure this is the official python.org interpreter, not a MinGW/MSYS2 build — prebuilt wheels only exist for the standard build. If a `pip install` ever tries to compile something from source with a `mingw_x86_64` tag in the log, recreate the venv with Python from [python.org](https://www.python.org/downloads/).
 
-## 2. Install dependencies
+### 2. Install dependencies
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-## 3. Apply migrations
+### 3. Apply migrations
 
 ```powershell
 python manage.py migrate
 ```
 
-This also applies migration `0004`, which fixes a real pre-existing bug:
-`HabitLog.date` existed on the model but was never migrated into the
-database, so any check-in would have crashed with
-`OperationalError: no such column: habits_habitlog.date`.
-
-> Already have a `db.sqlite3` from an older version? Run `migrate` anyway — it
-> upgrades it in place and existing accounts stay usable (they are marked as
-> email-verified automatically).
-
-## 4. (Optional) Create an admin account
+### 4. (Optional) Create an admin account
 
 ```powershell
 python manage.py createsuperuser
@@ -41,90 +73,70 @@ python manage.py createsuperuser
 
 Lets you browse Users / Habits / HabitLogs / ChatSessions at `/admin/`.
 
-## 5. Run the server
+### 5. Run the server
 
 ```powershell
 python manage.py runserver
 ```
 
-Visit `http://127.0.0.1:8000/`.
+Visit **http://127.0.0.1:8000/**.
 
-## AI habit coach (chatbot)
+## 📁 Project Structure
 
-The chat panel talks to Gemini through `habits/chatbot.py`.
-
-1. `pip install -r requirements.txt` (adds `langchain-google-genai`).
-2. Put your key in `.env` (copy `.env.example` to `.env`): `GOOGLE_API_KEY=...`
-   **Never put a real key in `.env.example`** (it is meant to be committed) and
-   never commit `.env`. If a key was ever pushed to GitHub, revoke it and make
-   a new one.
-   Optional: `GEMINI_MODEL=...` (default `gemini-3.5-flash-lite`; valid names
-   are listed at https://ai.google.dev/gemini-api/docs/models).
-   Use a Google AI Studio key (aistudio.google.com/api-keys). It goes to the
-   regular Gemini API whatever its prefix is. Vertex AI is opt-in only: set
-   `GOOGLE_GENAI_USE_VERTEXAI=true` if you really want it.
-3. Run the server as usual. The chat tells you what is wrong instead of a
-   generic error: missing key, invalid/blocked key, usage limit reached, or
-   unknown model name. With `DJANGO_DEBUG=True` (the default locally) the raw
-   technical reason is also appended to the message.
-
-How it works: for every message, the view sends Gemini (a) the coach rules,
-(b) a snapshot of **that user's** habits and the last 28 days of check-ins
-(streaks, missed days, misses by weekday), and (c) the last 20 messages of
-**that chat session** from the database. Nothing is shared between users or
-chats. If Gemini fails, the user gets a friendly error, nothing half-saved is
-left in the database, and they can just resend. Limits: 2000 characters per
-message, 15 messages per minute per user.
-
-Run the tests (they use a fake Gemini, no network needed):
-
-```powershell
-python manage.py test habits
+```
+Habit-Tracker/
+├── config/                  # Django project settings, URL routing
+│   ├── settings.py
+│   └── urls.py
+├── habits/                  # The one Django app
+│   ├── models.py            # UserProfile, Habit, HabitLog, ChatSession, ChatMessage
+│   ├── views.py             # Page views + JSON API views
+│   ├── forms.py             # SignupForm
+│   ├── signals.py           # Auto-creates UserProfile on signup
+│   ├── migrations/
+│   ├── static/habits/
+│   │   ├── css/style.css
+│   │   └── js/               # main.js, dashboard.js, choose-habit.js, chatbot.js
+│   └── templates/habits/     # index, login, signup, choose-habit, dashboard
+├── docs/screenshots/         # Images used in this README
+├── manage.py
+└── requirements.txt
 ```
 
-## What changed / what was actually broken
+## 🔌 API Endpoints
 
-- **Signup never saved anything.** `auth.js` was a mock layer that stored
-  fake accounts in `localStorage` and never touched the server. Login/signup
-  forms now POST directly to Django (`views.py`: `signup_view`,
-  `login_view`), with `{% csrf_token %}` and real server-side validation.
-- **`login_view`, `signup_view`, `logout_view`, `choose_habit_view` didn't
-  exist**, and their URLs were commented out in `urls.py`. Both are now
-  wired up.
-- **`UserProfile` was never auto-created on signup** because
-  `habits/apps.py` had no `ready()` method to connect the `post_save`
-  signal, and `INSTALLED_APPS` pointed at `'habits'` instead of
-  `'habits.apps.HabitsConfig'`. Fixed both.
-- **The dashboard, choose-habit screen, and chat panel were 100% mock**,
-  reading/writing `localStorage` only. They're now wired to the real
-  `/api/...` endpoints in `views.py` via `fetch()` (see `main.js`'s
-  `apiFetch()` helper, which attaches the CSRF token automatically).
-- **Chat history is now persisted** in two new models, `ChatSession` and
-  `ChatMessage`, instead of living only in the browser.
-- Added a `UserProfile.onboarded` flag so the "Choose your habits" screen
-  only shows once, right after signup.
-- Fixed hardcoded `/static/...` paths to use `{% static %}`, fixed a
-  malformed `<head>` (missing closing tag) in two templates, and fixed an
-  invalid `MAILERS` setting (the real Django setting is `EMAIL_BACKEND`).
-
-Everything above was tested end-to-end with Django's test client: signup,
-duplicate-email/weak-password rejection, login by username **or** email,
-wrong-password error display, onboarding, habit create/edit/delete,
-check-in toggling, week/month/year grid data, account updates, chat
-send/list/detail, and logout — all passing.
-
-## Configuration (all optional, set in `.env`)
-
-| Variable | Default | Notes |
+| Method | Path | Purpose |
 |---|---|---|
-| `DJANGO_SECRET_KEY` | insecure dev key | **Required in production.** |
-| `DJANGO_DEBUG` | `True` | Set `False` in production. |
-| `DJANGO_ALLOWED_HOSTS` | empty | Comma-separated hosts, needed when `DEBUG=False`. |
-| `DJANGO_TIME_ZONE` | `Africa/Cairo` | Decides when "today" rolls over for check-ins/streaks. |
+| GET/POST | `/login/` | Log in (username or email) |
+| GET/POST | `/signup/` | Create an account |
+| GET | `/logout/` | Log out |
+| GET | `/choose-habit/` | Onboarding: pick starting habits |
+| GET | `/dashboard/` | Main dashboard (`never_cache`) |
+| GET | `/api/period-data/?period=` | Week / Month / Year grid as JSON |
+| POST | `/api/habits/toggle/<id>/` | Toggle today's check-in |
+| POST | `/api/habits/save/` | Create or update a habit |
+| POST | `/api/habits/delete/<id>/` | Delete a habit |
+| POST | `/api/account/update/` | Update name / gender |
+| GET | `/api/chats/` | List the user's chat sessions |
+| POST | `/api/chat/` | Send a chat message, get a reply |
 
-## Known simplifications (not bugs, just left simple on purpose)
+Full request-flow walkthrough and the database schema (with ER diagram) are documented separately in **`Habit_Tracker_System_Architecture_and_Database_Design.docx`**.
 
-- Password rules use Django's default validators (min length, not too
-  common/numeric, not too similar to your username/email) — these are
-  stricter than the original "Email or Password are wrong" placeholder
-  text implied, but they're real protection instead of doing nothing.
+## 🗺 Roadmap
+
+- [ ] Email / push reminders at user-set times
+- [ ] Swap the chatbot's placeholder reply for a real LLM
+- [ ] Deeper analytics — category breakdowns, consistency insights
+- [ ] Full password-reset flow
+- [ ] Cloud deployment as an installable, mobile-friendly PWA
+
+## 🧪 Design Notes
+
+- **Timezone-correct by design** — `TIME_ZONE` is set to the user's local zone so "today" in streak and check-in logic always matches their real calendar day, not UTC.
+- **No stale state** — the dashboard is served with `never_cache`, so a browser restoring the page from its back/forward cache (e.g. after the laptop sleeps overnight) can never show a frozen, days-old check-in state.
+- **One check-in per day, enforced at the database level** — `HabitLog` has a `unique_together` constraint on `(habit, date)`, not just an application-level check.
+- **Real calendar math** — the Month view is a true 7-column, Sun–Sat calendar grid (4–6 rows depending on the month), padded so the 1st always lands under its correct weekday.
+
+## 📄 License
+
+Built for educational purposes as part of IEEE Elevate.
