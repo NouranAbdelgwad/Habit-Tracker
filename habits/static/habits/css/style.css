@@ -1058,7 +1058,6 @@ button, input, select, textarea {
   border-bottom-left-radius: 4px;
 }
 .chat-bubble.enter { animation: bubbleIn 0.2s ease; }
-<<<<<<< HEAD
 .chat-bubble { white-space: pre-wrap; overflow-wrap: anywhere; }
 .chat-bubble.typing { display: inline-flex; gap: 5px; align-items: center; padding: 18px 20px; }
 .chat-bubble.typing span {
@@ -1074,8 +1073,6 @@ button, input, select, textarea {
 }
 .chat-inputbar input:disabled { opacity: 0.6; cursor: progress; }
 
-=======
->>>>>>> origin/main
 @keyframes bubbleIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }

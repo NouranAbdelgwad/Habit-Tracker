@@ -100,14 +100,10 @@ async function apiFetch(url, options = {}) {
   if (!res.ok) {
     let detail = '';
     try { detail = await res.text(); } catch (e) { /* ignore */ }
-<<<<<<< HEAD
     const error = new Error(`Request to ${url} failed (${res.status}): ${detail}`);
     error.status = res.status;
     try { error.data = JSON.parse(detail); } catch (e) { error.data = null; }
     throw error;
-=======
-    throw new Error(`Request to ${url} failed (${res.status}): ${detail}`);
->>>>>>> origin/main
   }
   const contentType = res.headers.get('content-type') || '';
   return contentType.includes('application/json') ? res.json() : null;

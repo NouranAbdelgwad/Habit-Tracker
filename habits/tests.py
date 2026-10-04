@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import json
 from datetime import date, timedelta
 from types import SimpleNamespace
@@ -311,8 +310,113 @@ class ChatEndpointTests(TestCase):
         self.assertEqual(listing['chats'], [{'id': chat_id, 'title': 'hello there'}])
         detail = self.client.get(f'/api/chats/{chat_id}/').json()
         self.assertEqual([m['sender'] for m in detail['messages']], ['user', 'bot'])
-=======
-from django.test import TestCase
 
-# Create your tests here.
->>>>>>> origin/main
+
+# ---------------------------------------------------------------------------
+# Regression tests for the problems found in the project audit
+# ---------------------------------------------------------------------------
+
+class RepoHygieneTests(TestCase):
+    def test_no_merge_conflict_markers_in_source(self):
+        """A leftover '<<<<<<< HEAD' breaks Python/JS/CSS silently or loudly."""
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent
+        offenders = []
+        for path in root.rglob('*'):
+            if (path.suffix not in {'.py', '.js', '.css', '.html', '.txt', '.md'}
+                    or any(part in {'venv', '.venv', '.git', 'node_modules'} for part in path.parts)
+                    or path.resolve() == Path(__file__).resolve()):
+                continue
+            for n, line in enumerate(path.read_text(encoding='utf-8', errors='ignore').splitlines(), 1):
+                if line.startswith(('<<<<<<< ', '>>>>>>> ')) or line == '=======':
+                    offenders.append(f'{path.relative_to(root)}:{n}')
+        self.assertEqual(offenders, [])
+
+
+class AuthFlowTests(TestCase):
+    def test_signup_creates_unverified_profile_and_blocks_login(self):
+        resp = self.client.post('/signup/', {
+            'username': 'nour', 'email': 'Nour@Example.com',
+            'password1': 'S0me-long-pass!', 'password2': 'S0me-long-pass!',
+        })
+        self.assertEqual(resp.status_code, 200)  # "check your inbox" page
+        user = User.objects.get(username='nour')
+        self.assertEqual(user.email, 'nour@example.com')
+        self.assertFalse(user.userprofile.email_verified)
+
+        resp = self.client.post('/login/', {'email': 'nour', 'password': 'S0me-long-pass!'})
+        self.assertContains(resp, 'confirm your email')
+
+    def test_verified_user_can_login(self):
+        user = User.objects.create_user('sara', 'sara@example.com', 'S0me-long-pass!')
+        user.userprofile.email_verified = True
+        user.userprofile.save()
+        resp = self.client.post('/login/', {'email': 'sara@example.com', 'password': 'S0me-long-pass!'})
+        self.assertRedirects(resp, '/choose-habit/', fetch_redirect_response=False)
+
+    def test_duplicate_email_rejected_case_insensitively(self):
+        User.objects.create_user('a', 'dup@example.com', 'S0me-long-pass!')
+        resp = self.client.post('/signup/', {
+            'username': 'b', 'email': 'DUP@example.com',
+            'password1': 'S0me-long-pass!', 'password2': 'S0me-long-pass!',
+        })
+        self.assertContains(resp, 'already in use')
+
+
+class HabitApiTests(TestCase):
+    def setUp(self):
+        self.user = make_user('hab')
+        self.client.force_login(self.user)
+
+    def save(self, payload):
+        return self.client.post('/api/habits/save/', json.dumps(payload),
+                                content_type='application/json')
+
+    def test_rejects_invalid_frequency_and_bad_payloads(self):
+        self.assertEqual(self.save({'name': 'Run', 'frequency': 'hourly'}).status_code, 400)
+        self.assertEqual(self.save({'name': 'x' * 101}).status_code, 400)
+        self.assertEqual(self.save({'name': 123}).status_code, 400)
+        self.assertEqual(self.save([1, 2]).status_code, 400)
+        self.assertEqual(Habit.objects.count(), 0)
+
+    def test_toggle_on_then_off_lowers_streaks_again(self):
+        habit = Habit.objects.create(user=self.user, name='Read')
+        resp = self.client.post(f'/api/habits/toggle/{habit.id}/').json()
+        self.assertEqual((resp['checked_in_today'], resp['current_streak'], resp['longest_streak']), (True, 1, 1))
+        resp = self.client.post(f'/api/habits/toggle/{habit.id}/').json()
+        self.assertEqual((resp['checked_in_today'], resp['current_streak'], resp['longest_streak']), (False, 0, 0))
+
+    def test_cannot_touch_another_users_habit(self):
+        other = Habit.objects.create(user=make_user('other'), name='Secret')
+        self.assertEqual(self.client.post(f'/api/habits/toggle/{other.id}/').status_code, 404)
+        self.assertEqual(self.client.post(f'/api/habits/delete/{other.id}/').status_code, 404)
+
+
+class ChatbotErrorMessageTests(TestCase):
+    def test_errors_are_classified_for_the_user(self):
+        class Boom(Exception):
+            def __init__(self, msg, code=None):
+                super().__init__(msg)
+                self.code = code
+
+        cases = [
+            (Boom('API key not valid. Please pass a valid API key.', 400), chatbot.BAD_KEY_ERROR),
+            (Boom('forbidden', 403), chatbot.BAD_KEY_ERROR),
+            (Boom('RESOURCE_EXHAUSTED: quota exceeded', 429), chatbot.QUOTA_ERROR),
+            (Boom('models/nope is not found for API version v1beta', 404), chatbot.BAD_MODEL_ERROR),
+            (Boom('connection reset'), chatbot.FRIENDLY_ERROR),
+        ]
+        for exc, expected in cases:
+            self.assertEqual(chatbot._friendly_error(exc), expected, msg=str(exc))
+
+    @override_settings(DEBUG=False)
+    def test_view_returns_specific_message_when_key_is_bad(self):
+        user = make_user('keytest')
+        self.client.force_login(user)
+        llm = FakeLLM(error=type('E', (Exception,), {'code': 403})('PERMISSION_DENIED'))
+        with mock.patch.object(chatbot, '_get_llm', return_value=llm):
+            resp = self.client.post('/api/chat/', json.dumps({'message': 'hi'}),
+                                    content_type='application/json')
+        self.assertEqual(resp.status_code, 503)
+        self.assertEqual(resp.json()['error'], chatbot.BAD_KEY_ERROR)
+        self.assertEqual(ChatSession.objects.count(), 0)  # nothing half-saved

@@ -29,6 +29,10 @@ This also applies migration `0004`, which fixes a real pre-existing bug:
 database, so any check-in would have crashed with
 `OperationalError: no such column: habits_habitlog.date`.
 
+> Already have a `db.sqlite3` from an older version? Run `migrate` anyway — it
+> upgrades it in place and existing accounts stay usable (they are marked as
+> email-verified automatically).
+
 ## 4. (Optional) Create an admin account
 
 ```powershell
@@ -45,19 +49,24 @@ python manage.py runserver
 
 Visit `http://127.0.0.1:8000/`.
 
-<<<<<<< HEAD
 ## AI habit coach (chatbot)
 
 The chat panel talks to Gemini through `habits/chatbot.py`.
 
 1. `pip install -r requirements.txt` (adds `langchain-google-genai`).
-2. Put your key in `.env` (copy `.env.example`): `GOOGLE_API_KEY=...`
-   Optional: `GEMINI_MODEL=...` (default `gemini-3.5-flash-lite`).
+2. Put your key in `.env` (copy `.env.example` to `.env`): `GOOGLE_API_KEY=...`
+   **Never put a real key in `.env.example`** (it is meant to be committed) and
+   never commit `.env`. If a key was ever pushed to GitHub, revoke it and make
+   a new one.
+   Optional: `GEMINI_MODEL=...` (default `gemini-3.5-flash-lite`; valid names
+   are listed at https://ai.google.dev/gemini-api/docs/models).
    Use a Google AI Studio key (aistudio.google.com/api-keys). It goes to the
    regular Gemini API whatever its prefix is. Vertex AI is opt-in only: set
    `GOOGLE_GENAI_USE_VERTEXAI=true` if you really want it.
-3. Run the server as usual. If the key is missing the chat shows a clear
-   "coach isn't set up yet" message instead of crashing.
+3. Run the server as usual. The chat tells you what is wrong instead of a
+   generic error: missing key, invalid/blocked key, usage limit reached, or
+   unknown model name. With `DJANGO_DEBUG=True` (the default locally) the raw
+   technical reason is also appended to the message.
 
 How it works: for every message, the view sends Gemini (a) the coach rules,
 (b) a snapshot of **that user's** habits and the last 28 days of check-ins
@@ -73,8 +82,6 @@ Run the tests (they use a fake Gemini, no network needed):
 python manage.py test habits
 ```
 
-=======
->>>>>>> origin/main
 ## What changed / what was actually broken
 
 - **Signup never saved anything.** `auth.js` was a mock layer that stored
@@ -106,13 +113,17 @@ wrong-password error display, onboarding, habit create/edit/delete,
 check-in toggling, week/month/year grid data, account updates, chat
 send/list/detail, and logout — all passing.
 
+## Configuration (all optional, set in `.env`)
+
+| Variable | Default | Notes |
+|---|---|---|
+| `DJANGO_SECRET_KEY` | insecure dev key | **Required in production.** |
+| `DJANGO_DEBUG` | `True` | Set `False` in production. |
+| `DJANGO_ALLOWED_HOSTS` | empty | Comma-separated hosts, needed when `DEBUG=False`. |
+| `DJANGO_TIME_ZONE` | `Africa/Cairo` | Decides when "today" rolls over for check-ins/streaks. |
+
 ## Known simplifications (not bugs, just left simple on purpose)
 
-<<<<<<< HEAD
-=======
-- The chatbot's reply is a hardcoded placeholder string
-  (`views.chatbot_message`) — swap in a real API call whenever you're ready.
->>>>>>> origin/main
 - Password rules use Django's default validators (min length, not too
   common/numeric, not too similar to your username/email) — these are
   stricter than the original "Email or Password are wrong" placeholder

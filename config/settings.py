@@ -17,16 +17,59 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+PLACEHOLDER_HINTS = ('your-google-ai-studio-key-here', 'your.address@gmail.com',
+                     'your16letterapppassword', 'put-a-long-random-string-here')
+
+
+def _load_dotenv(path):
+    """Tiny .env reader (KEY=VALUE per line) so no extra package is needed.
+
+    * utf-8-sig: Windows editors often add a BOM, which would otherwise glue
+      itself onto the first variable's name.
+    * The values in .env WIN over variables already set in Windows (an old
+      GOOGLE_API_KEY set globally used to silently override .env, so editing
+      .env seemed to do nothing).
+    * Placeholder values copied from .env.example are ignored, with a warning.
+    """
+    if not path.exists():
+        print(f'[settings] WARNING: {path} not found -- copy .env.example to .env')
+        return
+    for line in path.read_text(encoding='utf-8-sig').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key == 'EMAIL_HOST_PASSWORD':
+            value = value.replace(' ', '')  # Google shows app passwords with spaces
+        if not key:
+            continue
+        if value in PLACEHOLDER_HINTS:
+            print(f'[settings] WARNING: {key} in .env is still the example placeholder -- ignoring it')
+            continue
+        os.environ[key] = value
+
+
+_load_dotenv(BASE_DIR / '.env')
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-ym$=)%a+=2!qre0z3y0t)(99-kl*(cbkv9y_9gm^y*ro%1e6)y'
+# Set DJANGO_SECRET_KEY in .env / the real environment for any deployment.
+# The fallback below is for local development only.
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-ym$=)%a+=2!qre0z3y0t)(99-kl*(cbkv9y_9gm^y*ro%1e6)y',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Defaults to True for local development; set DJANGO_DEBUG=False in production.
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').strip().lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()]
 
 
 # Application definition
@@ -106,7 +149,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# "Today" for check-ins/streaks follows this zone. With UTC, users in Egypt
+# saw their day roll over at 2-3 AM local time. Override with DJANGO_TIME_ZONE.
+TIME_ZONE = os.environ.get('DJANGO_TIME_ZONE', 'Africa/Cairo')
 
 USE_I18N = True
 
@@ -143,39 +188,6 @@ LOGOUT_REDIRECT_URL = 'index'
 # .env.example). If EMAIL_HOST_USER isn't set, emails are printed to the
 # terminal instead (handy for development).
 
-def _load_dotenv(path):
-<<<<<<< HEAD
-    """Tiny .env reader (KEY=VALUE per line) so no extra package is needed.
-
-    * utf-8-sig: Windows editors (Notepad, PowerShell redirects) often add a
-      BOM, which would otherwise glue itself onto the first variable's name.
-    * A variable that is missing OR empty in the real environment is filled
-      from .env; a non-empty real environment variable still wins.
-    """
-    if not path.exists():
-        return
-    for line in path.read_text(encoding='utf-8-sig').splitlines():
-=======
-    """Tiny .env reader (KEY=VALUE per line) so no extra package is needed."""
-    if not path.exists():
-        return
-    for line in path.read_text(encoding='utf-8').splitlines():
->>>>>>> origin/main
-        line = line.strip()
-        if not line or line.startswith('#') or '=' not in line:
-            continue
-        key, value = line.split('=', 1)
-<<<<<<< HEAD
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        if key and not os.environ.get(key):
-            os.environ[key] = value
-=======
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
->>>>>>> origin/main
-
-
-_load_dotenv(BASE_DIR / '.env')
 
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
@@ -190,5 +202,3 @@ if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
 else:
     EMAIL_BACKEND = 'habits.console_email.EmailBackend'
     DEFAULT_FROM_EMAIL = 'Habit Tracker <no-reply@habittracker.local>'
-
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

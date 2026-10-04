@@ -3,39 +3,29 @@ import logging
 from datetime import timedelta, date as date_cls
 
 from django.conf import settings
-from django.templatetags.static import static as static_url
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
+from django.db import transaction
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.shortcuts import redirect, render, get_object_or_404
+from django.templatetags.static import static as static_url
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
-from datetime import timedelta, date as date_cls
-
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
-from django.http import JsonResponse, HttpResponseBadRequest
-from django.shortcuts import redirect, render, get_object_or_404
-from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 
-<<<<<<< HEAD
-from django.core.cache import cache
-from django.db import transaction
-
 from . import chatbot
-=======
->>>>>>> origin/main
 from .forms import SignupForm
 from .models import ChatMessage, ChatSession, Habit, HabitLog, UserProfile
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -54,7 +44,7 @@ def _send_email(user, subject, body):
         send_mail(subject, body, None, [user.email], fail_silently=False)
         return True
     except Exception:
-        logging.getLogger(__name__).exception('Could not send email to %s', user.email)
+        logger.exception('Could not send email to %s', user.email)
         return False
 
 
@@ -231,9 +221,6 @@ def signup_view(request):
             profile.save(update_fields=['email_verified'])
             _send_verification_email(request, user)
             return render(request, 'habits/verify-email.html', {'state': 'sent', 'email': user.email})
-            user = form.save()
-            login(request, user)
-            return redirect('choose-habit')
         return render(request, 'habits/signup.html', {'form': form})
 
     form = SignupForm()
@@ -275,20 +262,6 @@ def login_view(request):
         'error': error,
         'notice': 'Email confirmed! You can log in now.' if request.GET.get('verified') else None,
     })
-    username = identifier
-    if '@' in identifier:
-        try:
-            username = User.objects.get(email__iexact=identifier).username
-        except User.DoesNotExist:
-            username = None
-
-        user = authenticate(request, username=username, password=password) if username else None
-        if user is not None:
-            login(request, user)
-            profile = _get_or_create_profile(user)
-            return redirect('dashboard' if profile.onboarded else 'choose-habit')
-        error = "Email or Password are wrong"
-    return render(request, 'habits/login.html', {'error': error})
 
 
 def logout_view(request):
@@ -371,7 +344,7 @@ def reset_password_view(request, uidb64, token):
     valid_link = user is not None and default_token_generator.check_token(user, token)
     if not valid_link:
         # Shows in the runserver terminal so a bad link can be diagnosed.
-        logging.getLogger(__name__).warning(
+        logger.warning(
             'Password reset link rejected: uidb64=%r token=%r (token length %d, user found: %s)',
             uidb64, token, len(token), user is not None,
         )
@@ -436,12 +409,6 @@ def dashboard(request):
 
     dashboard_data = {
         'user': _serialize_account(user, profile),
-        'user': {
-            'name': user.get_full_name() or user.username,
-            'email': user.email,
-            'initial': (user.get_full_name() or user.username)[:1].upper(),
-            'gender': profile.gender,
-        },
         'habits': [_serialize_habit(h) for h in habits],
         'grid': _week_grid(user),
         'history': _serialize_history(user),
@@ -493,9 +460,19 @@ def habit_create_or_update(request):
     except json.JSONDecodeError:
         return HttpResponseBadRequest('Invalid JSON')
 
-    name = (payload.get('name') or '').strip()
+    if not isinstance(payload, dict):
+        return HttpResponseBadRequest('Invalid JSON')
+
+    name = (payload.get('name') or '').strip() if isinstance(payload.get('name'), str) else ''
     if not name:
         return JsonResponse({'error': 'Name is required'}, status=400)
+    if len(name) > Habit._meta.get_field('name').max_length:
+        return JsonResponse({'error': 'Name is too long (max 100 characters)'}, status=400)
+
+    valid_frequencies = {key for key, _ in Habit.FREQUENCY_CHOICES}
+    frequency = payload.get('frequency')
+    if frequency is not None and frequency not in valid_frequencies:
+        return JsonResponse({'error': 'Invalid frequency'}, status=400)
 
     habit_id = payload.get('id')
     if habit_id:
@@ -505,7 +482,7 @@ def habit_create_or_update(request):
 
     habit.name = name
     habit.icon = payload.get('icon', habit.icon)
-    habit.frequency = payload.get('frequency', habit.frequency or 'daily')
+    habit.frequency = frequency or habit.frequency or 'daily'
     habit.tags = payload.get('tags', habit.tags)
     habit.save()
 
@@ -596,28 +573,6 @@ def update_account(request):
     profile.save()
 
     return JsonResponse(_serialize_account(user, profile))
-    """POST /api/account/update/ — body: {name, gender}"""
-    try:
-        payload = json.loads(request.body)
-    except json.JSONDecodeError:
-        return HttpResponseBadRequest('Invalid JSON')
-
-    user = request.user
-    profile = _get_or_create_profile(user)
-
-    full_name = (payload.get('name') or '').strip()
-    if full_name:
-        parts = full_name.split(' ', 1)
-        user.first_name = parts[0]
-        user.last_name = parts[1] if len(parts) > 1 else ''
-        user.save(update_fields=['first_name', 'last_name'])
-
-    gender = payload.get('gender')
-    if gender in ('male', 'female', ''):
-        profile.gender = gender
-        profile.save(update_fields=['gender'])
-
-    return JsonResponse({'name': user.get_full_name() or user.username, 'gender': profile.gender})
 
 
 @login_required
@@ -642,7 +597,6 @@ def chat_detail(request, chat_id):
     })
 
 
-<<<<<<< HEAD
 CHAT_MAX_MESSAGE_CHARS = 2000
 CHAT_RATE_LIMIT = 15        # messages per user ...
 CHAT_RATE_WINDOW = 60       # ... per this many seconds
@@ -660,13 +614,10 @@ def _chat_rate_limited(user_id):
         return False
 
 
-=======
->>>>>>> origin/main
 @login_required
 @require_POST
 def chatbot_message(request):
     """POST /api/chat/ — body: {message, chat_id?}
-<<<<<<< HEAD
     Asks the AI coach (habits/chatbot.py) for a reply using the user's real
     habit data and this session's history. The exchange is saved only when a
     reply was produced, so a failed call leaves no half-finished chat behind
@@ -716,29 +667,3 @@ def chatbot_message(request):
         ChatMessage.objects.create(session=session, sender='bot', text=reply)
 
     return JsonResponse({'chat_id': session.id, 'title': session.title, 'reply': reply})
-=======
-    Creates (or reuses) a ChatSession, stores the user's message, generates
-    a reply, stores that too, and returns both plus the session id/title.
-    Replace the placeholder reply below with a real AI call when ready."""
-    try:
-        payload = json.loads(request.body)
-    except json.JSONDecodeError:
-        return HttpResponseBadRequest('Invalid JSON')
-
-    message = (payload.get('message') or '').strip()
-    if not message:
-        return HttpResponseBadRequest('Empty message')
-
-    chat_id = payload.get('chat_id')
-    if chat_id:
-        session = get_object_or_404(ChatSession, id=chat_id, user=request.user)
-    else:
-        session = ChatSession.objects.create(user=request.user, title=message[:40])
-
-    ChatMessage.objects.create(session=session, sender='user', text=message)
-
-    reply = "Got it! (This is a placeholder response — AI backend not connected yet.)"
-    ChatMessage.objects.create(session=session, sender='bot', text=reply)
-
-    return JsonResponse({'chat_id': session.id, 'title': session.title, 'reply': reply})
->>>>>>> origin/main

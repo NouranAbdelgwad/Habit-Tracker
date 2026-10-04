@@ -42,6 +42,16 @@ FRIENDLY_ERROR = (
 NOT_CONFIGURED_ERROR = (
     "The coach isn't set up yet (missing GOOGLE_API_KEY on the server)."
 )
+BAD_KEY_ERROR = (
+    "The coach can't sign in to Gemini: the API key on the server is invalid, "
+    "revoked, or not allowed to use this model. Please check GOOGLE_API_KEY."
+)
+QUOTA_ERROR = (
+    "The coach has hit its Gemini usage limit for now. Please try again in a minute."
+)
+BAD_MODEL_ERROR = (
+    "The configured Gemini model wasn't found. Please check GEMINI_MODEL on the server."
+)
 
 
 class ChatbotError(Exception):
@@ -265,6 +275,42 @@ def _debug_suffix(exc):
     return '\n\n[DEBUG] ' + ' '.join(text.split())[:400]
 
 
+def _status_code(exc):
+    """HTTP-ish status code carried by an SDK exception (or its cause), if any."""
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        for attr in ('code', 'status_code'):
+            value = getattr(exc, attr, None)
+            if isinstance(value, int):
+                return value
+        exc = exc.__cause__ or exc.__context__
+    return None
+
+
+def _friendly_error(exc):
+    """Map an SDK failure to the most helpful user-safe message.
+
+    Without this every failure (bad key, quota, wrong model, network) looked
+    identical to the user, which made "the chatbot doesn't work" impossible to
+    diagnose. Exception class names differ between library versions, so we go
+    by status code and message text instead.
+    """
+    code = _status_code(exc)
+    text = f'{type(exc).__name__} {exc}'.lower()
+
+    if (code in (401, 403)
+            or any(k in text for k in ('api key not valid', 'api_key_invalid',
+                                       'permission_denied', 'unauthenticated',
+                                       'permissiondenied', 'forbidden'))):
+        return BAD_KEY_ERROR
+    if code == 429 or 'resource_exhausted' in text or 'quota' in text or 'rate limit' in text:
+        return QUOTA_ERROR
+    if code == 404 or 'not_found' in text or 'is not found for api version' in text:
+        return BAD_MODEL_ERROR
+    return FRIENDLY_ERROR
+
+
 def _extract_text(response):
     """Reply text from a LangChain message (handles str or block-list content)."""
     text = getattr(response, 'text', None)
@@ -303,7 +349,7 @@ def get_reply(user, message, session=None):
         raise
     except Exception as exc:
         logger.exception('Gemini request failed')
-        raise ChatbotError(FRIENDLY_ERROR + _debug_suffix(exc))
+        raise ChatbotError(_friendly_error(exc) + _debug_suffix(exc))
 
     reply = _extract_text(response)
     if not reply:
